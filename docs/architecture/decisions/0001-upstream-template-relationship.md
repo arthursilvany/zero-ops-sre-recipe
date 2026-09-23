@@ -195,6 +195,28 @@ This decision establishes the layering the rest of the architecture depends on:
   through the generalization rules and the exclusion list in `source-analysis.md`
   section 5.4.
 
+## Amendment — 2026-09-23 (post-acceptance)
+
+The decision stands unchanged: extend, and pin. The **pinning mechanism is tightened** in
+response to finding SEC-004 of the architectural security review.
+
+As originally written this ADR spoke of a "pinned version". A version string or a git tag is
+**not an integrity control** — a tag is mutable and can be repointed. Because the operator
+fetches and executes upstream lifecycle scripts locally while holding live Azure
+credentials, acquisition of the upstream tree is a **trust-boundary crossing**, and the
+upstream is preview-era.
+
+The pin is therefore refined to:
+
+- Pin by **immutable commit digest**. CI rejects a tag-only or version-only pin.
+- Record a digest of the fetched tree and **verify it before any upstream script executes**;
+  a mismatch fails closed.
+- Document acquisition explicitly as a trust-boundary crossing.
+- Treat an upstream bump as a **security-reviewed change**, not a routine version bump.
+
+The compatibility test required by this ADR is extended to assert that the upstream
+prerequisite enforcement relied upon by ADR-0004 is still in place.
+
 ## Implementation Notes
 
 - Pin the upstream by commit or tag and record it in a single, discoverable place so the

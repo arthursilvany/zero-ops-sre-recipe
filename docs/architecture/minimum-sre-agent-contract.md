@@ -122,13 +122,22 @@ somewhere enforceable, and this is where.
 ### 5. Tool definitions — Required
 
 A deny-by-default policy is meaningless unless the permitted capability set is enumerated,
-so this area is a precondition for area 22 and for the read-only guarantee itself. The
-reference suite enumerates allowed tools and skills; upstream exposes capability toggles.
+so this area is a precondition for area 22. The reference suite enumerates allowed tools and
+skills; upstream exposes capability toggles.
+
+**This area is defence-in-depth, not the read-only guarantee.** The architectural security
+review (SEC-001) corrected an earlier framing here: the guarantee derives from the role
+grant in area 7, because an allow-list denies what it *names*, not what it cannot see, and
+the documented runtime default inherits global tools — including write tools — when explicit
+selection is omitted. Treating the tool policy as the primary control would make the safety
+claim depend on identifiers that may be wrong.
 
 Carried risk, recorded rather than hidden: the reference suite states that its runtime tool
-identifiers are **unconfirmed** against the real runtime. Reconciling identifiers against
-the actual runtime is required before the tool-policy enforcement model is settled, and that
-reconciliation remains an open decision in the spec.
+identifiers are **unconfirmed** against the real runtime. Until a reconciliation gate has
+run against a real runtime and failed closed on any unclassified capability, the policy is
+documented as **declared, not runtime-verified**. Reconciling identifiers is required before
+the tool-policy enforcement model is settled, and that reconciliation remains an open
+decision in the spec.
 
 ### 6. Authentication and authorization — Required
 
@@ -143,6 +152,20 @@ Upstream ships a dedicated module for target-scope role assignments, which is di
 evidence that this is a first-class deployment concern rather than an afterthought. In a
 read-only v1 the grants are read-scoped, and that narrowness is the entire safety argument.
 Leaving assignments implicit would mean either over-granting or a non-functional agent.
+
+**This area, not area 5, carries the read-only guarantee.** The architectural security
+review (SEC-001) established the order of authority: RBAC is ground truth, because Azure
+Resource Manager denies a write regardless of what the agent believes it may do. The tool
+policy in area 5 is defence-in-depth layered above it, not the primary control. The
+distinction matters because area 5 depends on capability identifiers the reference source
+declares unconfirmed — if those identifiers are wrong, the tool policy silently weakens,
+and only the role grant still holds.
+
+A consequence recorded by SEC-003 and carried into planning: binding to a
+consumer-supplied existing identity can break this guarantee invisibly, because that
+principal may already hold write roles elsewhere in the tenant. Validation must therefore
+assert the absence of non-read roles across the subscription, not merely the absence of
+write grants made by this framework.
 
 ### 8. Data-source connections — Required
 

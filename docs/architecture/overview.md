@@ -139,6 +139,7 @@ the recovery action (FR-38), and must fail closed rather than proceed on partial
 
 | Constraint | Structural mechanism | Detected by |
 |------------|---------------------|-------------|
+| CON-02 — read-only guarantee | **RBAC is ground truth**: Azure Resource Manager denies a write regardless of the agent's configured tool set. The tool policy is defence-in-depth above it, not the primary control (SEC-001) | Post-deployment assertion that the agent principal holds no non-read role anywhere in the subscription (SEC-003) |
 | CON-05 — zero core edits to onboard | Core and extensions are separate directory trees; onboarding writes only to consumer-owned paths | Automated diff against declared core paths (SC-01) |
 | CON-11 — no customer-specific content in the core | Same boundary, inverted: the core has no path where customer values are legal | Sanitization gate extended to customer vocabulary (SC-13) |
 | CON-02 — read-only in v1 | Remediation and approval exist as schema and as denial tests, with no execution path | Negative tests as a release gate (SC-06) |
@@ -194,8 +195,10 @@ Rationale for the choices that are not obvious:
 - **`extensions/` ships a README and no content.** This is the seam CON-11 depends on. The
   directory exists to document the extension contract, and shipping any customer content
   here would itself be the violation.
-- **`deploy/upstream.lock`** makes the pin explicit and diffable, so an upgrade is a visible
-  change rather than a drift.
+- **`deploy/upstream.lock`** records the **immutable upstream commit digest** plus a digest
+  of the fetched tree, making the pin explicit and diffable so an upgrade is a visible,
+  security-reviewed change rather than a drift. Per the ADR-0001 amendment, a tag-only or
+  version-only pin is rejected, because a tag is mutable and is not an integrity control.
 - **No `terraform/` directory**, per CON-12 and the ADR-0002 acceptance note.
 - **`tests/negative/` is named for what it proves**, not for the code it exercises, because
   its contents are the evidence behind the read-only claim.
