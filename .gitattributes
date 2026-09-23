@@ -1,0 +1,20 @@
+# Deterministic line-ending normalization.
+# CRLF in YAML and shell scripts has caused silent failures in reference projects.
+* text=auto eol=lf
+
+*.md     text eol=lf
+*.json   text eol=lf
+*.yaml   text eol=lf
+*.yml    text eol=lf
+*.ps1    text eol=lf
+*.sh     text eol=lf
+*.bicep  text eol=lf
+*.tf     text eol=lf
+*.tfvars text eol=lf
+*.kql    text eol=lf
+
+# Immutable evidence and binary artifacts
+*.html -text
+*.docx binary
+*.xlsx binary
+*.png  binary
