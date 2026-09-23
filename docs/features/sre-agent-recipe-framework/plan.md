@@ -3,11 +3,11 @@
 **Feature**: `sre-agent-recipe-framework`
 **Date**: 2026-09-23
 **Status**: Draft
-**Specification**: [spec.md](spec.md) v1.2
+**Specification**: [spec.md](spec.md) v1.3
 **Binds to**: [ADR-0001](../../architecture/decisions/0001-upstream-template-relationship.md),
 [ADR-0002](../../architecture/decisions/0002-infrastructure-as-code.md),
 [ADR-0003](../../architecture/decisions/0003-guided-deployment-experience.md),
-[ADR-0004](../../architecture/decisions/0004-framework-tooling-runtime.md) (Proposed)
+[ADR-0004](../../architecture/decisions/0004-framework-tooling-runtime.md) (Accepted)
 **Security review**: [security-review-architecture.md](security-review-architecture.md) —
 `APPROVED_WITH_CONTROLS`
 
@@ -38,15 +38,16 @@ match it.
 | 4 | Guided experience, deployment composition, CI gates, security validation, documentation | This plan |
 | 5 | Reference workload, integration validation, operations guidance, final traceability | This plan |
 
-Two Slice 2 actions remain and **block task decomposition**:
+Two Slice 2 actions remained and blocked task decomposition. **Both are now closed:**
 
-1. **ADR-0004 acceptance.** Proposed in this planning pass. It settles the tooling runtime
+1. **ADR-0004 acceptance.** Accepted on 2026-09-23. It settles the tooling runtime
    and pins the canonicalisation and hashing rules without which FR-19 and FR-23 are not
    verifiable claims.
 2. **Specification amendment.** The security review identified eleven requirements marked
-   `Automated` that cannot fail as written. They are listed in *Required Specification
-   Amendments* below. A release gate built on an unfalsifiable requirement produces false
-   assurance, which is worse than an acknowledged gap.
+   `Automated` that could not fail as written. They are listed in *Required Specification
+   Amendments* below and landed in `spec.md` v1.3. A release gate built on an
+   unfalsifiable requirement produces false assurance, which is worse than an
+   acknowledged gap.
 
 ## Architecture Recap
 
@@ -116,8 +117,10 @@ settled structure in Slice 3, item S3-01.
 
 ## Required Specification Amendments
 
-These are **blocking** and must land before decomposition. Each is a requirement that
-cannot currently fail, which means the gate built on it would pass on false evidence. The
+**Status: landed in `spec.md` v1.3 on 2026-09-23.** Each row below is now amended in the
+specification, and decomposition is unblocked on this count. The table is retained as the
+audit trail from finding to amendment. Each was a requirement that could not fail, which
+means the gate built on it would have passed on false evidence. The
 amendment belongs to the specification agent, not to this plan.
 
 | Requirement | Amendment | Finding |
@@ -197,12 +200,12 @@ gates the deployment path.
 | S4-05 | Input collection, explanation and format validation | FR-15, FR-16 | No secret collected in plain text (FR-17) |
 | S4-06 | Non-interactive parity and byte-identical output | FR-18, FR-19 | Covered by tests, not by documentation alone |
 | S4-07 | Bicep composition over pinned upstream modules | FR-31, FR-34, FR-35, FR-36 | Compose and parameterize; never re-author (ADR-0002) |
-| S4-08 | Preview, including every existing role held by a supplied principal | FR-20, FR-21 | Explicit confirmation required. Stale scope entries fail before provisioning (SEC-003) |
+| S4-08 | Preview, including every existing role held by a supplied principal | FR-20, FR-21, FR-33, FR-34 | NEG-B: a supplied principal holding any non-read role anywhere in the subscription blocks the preview until explicitly confirmed. Explicit confirmation required. Stale scope entries fail before provisioning (SEC-003) |
 | S4-09 | Compiled-ARM role audit, offline | FR-33 | NEG-A. The authoritative read-only check, credential-free |
 | S4-10 | Deployment idempotency and actionable failure messages | FR-32, FR-38 | Failing step, probable cause, recovery action |
 | S4-11 | Post-deployment validation | FR-39, FR-43 | Fails when the principal holds any non-read role anywhere in the subscription. Distinguishes not-yet-effective from not-granted |
 | S4-12 | Runtime capability reconciliation gate | FR-51, FR-54 | NEG-C: an advertised capability the policy does not classify fails the build. Until it runs against a real runtime, the policy stays documented as declared, not verified |
-| S4-13 | Injection-corpus measurement, non-gating | NFR-05 | Reported as a measured rate with evidence, never claimed as proof (FR-42 discipline) |
+| S4-13 | Injection-corpus measurement, non-gating | NFR-05, CC-023 | Reported as a measured rate with evidence, never claimed as proof (FR-42 discipline) |
 | S4-14 | CI quality gates | NFR-06, NFR-08 to NFR-14 | Markdown lint, link check, example validation, Bicep build and lint, static Infrastructure as Code analysis, unit tests, negative gate, command-consistency check, dependency drift |
 | S4-15 | CI supply-chain hardening | SEC-015, NFR-14 | Digest-pinned actions, least-privilege permissions, federated credentials |
 | S4-16 | Security model, configuration reference, deployment and validation guides | NFR-05, FR-54, FR-59, NFR-16 | The security model states RBAC as the authority and names the test covering each of the five threats |
