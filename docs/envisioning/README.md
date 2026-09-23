@@ -255,7 +255,7 @@ Assumptions made in autonomous mode; each is falsifiable and should be revisited
 |------|-------------|------|
 | Baseline for time from zero to a validated deployment | First two real adoptions | `[TO BE MEASURED]` Do not state a number before it is measured |
 | English renaming of the state vocabulary, including `SEM_ACESSO` | Contract phase | Record original values as provenance |
-| Which candidate contract areas are Required, Recommended, Optional, or Out of scope | Contract phase | Per `prd.md`, classify with rationale and evidence |
+| Which candidate contract areas are Required, Recommended, Optional, or Out of scope | Contract phase | **CLOSED 2026-09-23** — `docs/architecture/minimum-sre-agent-contract.md` classifies all 25 candidate areas with rationale and evidence |
 | IaC technology selection | Architecture phase | **CLOSED 2026-09-23** — ADR-0002 Accepted: Bicep primary, no Terraform work owned here, ARM JSON as compiled output only |
 | Azure SRE Agent binding design | Architecture phase | **CLOSED 2026-09-23** — ADR-0001 Accepted: `agent.json` is the concrete binding; it must not leak into the runtime-agnostic core |
 | Guided deployment experience, if justified | Architecture phase | **CLOSED 2026-09-23** — ADR-0003 Accepted: CLI wizard extending the upstream `new-agent` pattern, emitting a schema-validated scope contract |
