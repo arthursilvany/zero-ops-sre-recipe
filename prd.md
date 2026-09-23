@@ -1,8 +1,10 @@
-# Mission
+# Zero Ops SRE Agent Recipe - Product Requirements
+
+## Mission
 
 Build a reusable, production-oriented "Zero Ops SRE Agent Recipe" in this repository:
 
-https://github.com/arthursilvany/zero-ops-sre-recipe.git
+<https://github.com/arthursilvany/zero-ops-sre-recipe.git>
 
 The repository must become a reference framework that teams can use to create and deploy new SRE agents consistently across customer workloads.
 
@@ -10,7 +12,7 @@ The primary business goal is to reduce the time, ambiguity, and duplicated effor
 
 All repository content, source code, documentation, diagrams, configuration names, comments, examples, tests, commit-ready artifacts, and user-facing text must be written in English.
 
-# Operating Mode
+## Operating Mode
 
 Use the DevSquad delivery workflow.
 
@@ -29,7 +31,7 @@ Do not jump directly into implementation.
 
 Treat this as a production-quality reusable framework, not as a throwaway prototype.
 
-# Target Repository
+## Target Repository
 
 Implement all new artifacts only in the currently opened target repository:
 
@@ -37,11 +39,11 @@ C:\dev\zero-ops-sre-recipe
 
 Remote repository:
 
-https://github.com/arthursilvany/zero-ops-sre-recipe.git
+<https://github.com/arthursilvany/zero-ops-sre-recipe.git>
 
 If the local target path differs from the actual workspace root, use the current Git workspace as the target repository.
 
-# Authoritative Reference Sources
+## Authoritative Reference Sources
 
 Analyze the following local sources before proposing the design:
 
@@ -57,7 +59,7 @@ Treat both source locations as read-only references.
 
 Do not modify, rename, move, format, or commit files in either source repository.
 
-# Mandatory Preflight
+## Mandatory Preflight
 
 Before planning or writing implementation files:
 
@@ -77,7 +79,7 @@ If either reference source is inaccessible:
 - Provide precise instructions for making the source available, such as adding the folder to a multi-root VS Code workspace or copying an approved sanitized snapshot into a temporary reference directory.
 - Continue only with repository initialization and a documented list of blocked analysis tasks.
 
-# Source Analysis
+## Source Analysis
 
 Create a structured inventory of the existing implementation and guide.
 
@@ -122,7 +124,7 @@ Do not copy customer-specific content into the target repository.
 
 Do not expose secrets or sensitive values in analysis documents. Replace sensitive examples with clearly named placeholders.
 
-# Pattern Extraction
+## Pattern Extraction
 
 Separate everything found in the sources into four categories:
 
@@ -145,7 +147,7 @@ For each reusable artifact, document:
 
 The resulting repository must be a generalized recipe. It must not be a direct clone or rename of `zero-ops-sre-cortex`.
 
-# Functional Outcome
+## Functional Outcome
 
 The framework must enable a team to:
 
@@ -160,7 +162,7 @@ The framework must enable a team to:
 9. Remove or roll back deployed resources safely.
 10. Trace implementation decisions back to specifications and ADRs.
 
-# Minimum SRE Agent Contract
+## Minimum SRE Agent Contract
 
 Derive the final contract from the references, but evaluate at least the following candidate areas:
 
@@ -201,7 +203,7 @@ Classify each item as:
 
 Record the rationale and evidence for the classification.
 
-# Infrastructure as Code Decision
+## Infrastructure as Code Decision
 
 Evaluate these implementation alternatives:
 
@@ -238,7 +240,7 @@ Only implement a second IaC option if the source analysis or an explicit require
 
 Treat ARM JSON as a deployment output or compatibility option unless the decision analysis shows that hand-authored ARM JSON is the best primary source.
 
-# Guided Deployment Experience
+## Guided Deployment Experience
 
 If a wizard or guided deployment experience is justified, do not assume its technology.
 
@@ -267,7 +269,7 @@ The guided experience must:
 - Document rollback and cleanup
 - Avoid hiding the underlying IaC deployment model
 
-# Proposed Repository Deliverables
+## Proposed Repository Deliverables
 
 After source analysis, validate and refine the following proposed structure:
 
@@ -312,7 +314,7 @@ Do not create empty folders or placeholder files without a defined purpose.
 
 Adapt the structure to actual findings and document material deviations in an ADR or implementation plan.
 
-# Required Documentation
+## Required Documentation
 
 At minimum, produce:
 
@@ -336,7 +338,7 @@ At minimum, produce:
 18. Known limitations
 19. Traceability between requirements, ADRs, tasks, tests, and implemented artifacts
 
-# Security and Responsible AI Requirements
+## Security and Responsible AI Requirements
 
 Apply secure-by-default principles.
 
@@ -357,7 +359,7 @@ At minimum:
 
 If the sources conflict with these principles, document the conflict and propose a safer design rather than silently reproducing it.
 
-# Configuration Design
+## Configuration Design
 
 Define a versioned, machine-validatable configuration contract.
 
@@ -380,7 +382,7 @@ Provide:
 - Validation behavior
 - Backward-compatibility or migration guidance
 
-# Testing and Quality Gates
+## Testing and Quality Gates
 
 Define and implement appropriate validation for the selected technologies.
 
@@ -402,7 +404,7 @@ Tests that require an Azure subscription must be clearly separated from local te
 
 Do not claim that a live deployment passed unless it was actually executed successfully and evidence is available.
 
-# Delivery Strategy
+## Delivery Strategy
 
 Break the work into thin, reviewable slices.
 
@@ -452,7 +454,7 @@ For medium-impact or high-impact decisions, stop at the relevant review checkpoi
 
 Do not make irreversible architectural choices silently.
 
-# Initial Response Required
+## Initial Response Required
 
 Before modifying implementation files, respond with:
 
@@ -468,7 +470,7 @@ Before modifying implementation files, respond with:
 
 Then initialize the DevSquad project artifacts if needed and begin only the first approved, non-blocked slice.
 
-# Definition of Done
+## Definition of Done
 
 The project is complete only when:
 
