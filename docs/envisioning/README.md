@@ -66,7 +66,7 @@ Implementing Zero Ops capabilities for a new workload currently restarts from a 
 | Multi-runtime agent bindings | Azure SRE Agent is the first and only concrete binding. The core contract stays runtime-agnostic so additional bindings remain possible. |
 | Selecting the IaC technology | Decided in a dedicated ADR with a weighted matrix, not in envisioning. |
 | Multi-cloud or non-Azure targets | The reference evidence and the deployment model are Azure-specific. |
-| Reproducing customer-specific content | MJSP naming, the `CTX-01..CTX-13` procedure numbering, and real-environment evidence under `docs/assessments/` are excluded by construction. |
+| Reproducing customer-specific content | reference-customer naming, the `CTX-01..CTX-13` procedure numbering, and real-environment evidence under `docs/assessments/` are excluded by construction. |
 
 ---
 
@@ -106,7 +106,7 @@ Deploys the recipe inside a time-boxed engagement, often in an unfamiliar enviro
 |---------|--------|--------|
 | Every new workload restarts from a single-customer implementation | Duplicated effort and ambiguity per engagement; delivery time depends on the individual engineer rather than on a repeatable asset | `prd.md`, "The primary business goal is to reduce the time, ambiguity, and duplicated effort required to implement Zero Ops capabilities for new workloads" |
 | No baseline exists for time from zero to a validated deployment | The improvement cannot be claimed or defended today | `[TO BE MEASURED]` Capture by instrumenting the first two real adoptions |
-| Inconsistent results across engagements | Quality and safety posture vary by delivery; no shared definition of "done" for an SRE agent | Reference implementation is customer-coupled (MJSP naming, `CTX-01..CTX-13` procedure numbering) and cannot be handed to another customer as-is |
+| Inconsistent results across engagements | Quality and safety posture vary by delivery; no shared definition of "done" for an SRE agent | Reference implementation is customer-coupled (reference-customer naming, `CTX-01..CTX-13` procedure numbering) and cannot be handed to another customer as-is |
 | Knowledge is locked in a Portuguese-language, customer-specific codebase | Limits reuse to people with access to that codebase and that language | `ZeroOps-Cortex` is read-only by construction and contains real customer environment data; `GUIA-SRE-AGENT-PTBR.html` is also Portuguese |
 
 **Main impact area:**
@@ -219,7 +219,7 @@ Baseline capture method: record, for the first two real adoptions, the elapsed t
 | Risk | Impact | Likelihood | Mitigation |
 |------|--------|------------|------------|
 | Generalization dilutes what made the reference implementation effective | High | Medium | Extract patterns with cited source evidence; keep the evidence chain and the negative-test release gate as first-class core assets, not optional extras |
-| The recipe drifts into a rename of the single-customer implementation | High | Medium | Explicit exclusion list (MJSP naming, `CTX-01..CTX-13` numbering, `docs/assessments/` evidence); workload-neutral minimal example as a structural check |
+| The recipe drifts into a rename of the single-customer implementation | High | Medium | Explicit exclusion list (reference-customer naming, `CTX-01..CTX-13` numbering, `docs/assessments/` evidence); workload-neutral minimal example as a structural check |
 | Repository becomes public with residual sensitive content | High | Low | Placeholder discipline from the first commit, automated secret scanning in CI, and a sanitization audit gate as a precondition for flipping visibility |
 | Azure SRE Agent specifics leak into the core contract | Medium | High | Keep the binding in a separate layer; review every core artifact for runtime assumptions before merge |
 | Read-only boundary erodes as remediation demand appears | High | Medium | Define remediation as contract plus extension point only in the first version; require approval gates and negative tests before any mutating capability ships |
