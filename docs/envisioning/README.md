@@ -174,6 +174,8 @@ flowchart LR
 
 Make Zero Ops adoption for a new workload a repeatable, reviewable delivery asset rather than a per-engagement rebuild, so that reliability outcomes become consistent and independent of the individual engineer.
 
+The recipe is positioned around **quick wins for any customer**. It must produce something useful early, for a customer nobody has met before, with no customer-specific code written to get there. This is a positioning decision, not just a performance target: it rules out anything that requires bespoke engineering before the first result, and it makes the first working session the moment the framework proves itself.
+
 ### 6.2 Technical Objective
 
 Ship a reusable core defining a runtime-agnostic minimum SRE agent contract, a versioned machine-validatable configuration model, and a preserved chain of evidence, such that a new workload is onboarded through configuration alone with zero edits to the core, and the read-only safety boundary is enforced and testable.
@@ -193,6 +195,8 @@ No historical baseline exists. The first version targets structurally observable
 | Time from zero to a validated SRE agent deployment for a new workload | Directional reduction against the first measured adoption | `[TO BE MEASURED]` Instrument the first two real adoptions to establish the baseline |
 | Sanitization findings in the repository (secrets, tenant IDs, subscription IDs, resource IDs, endpoints, customer names) | Zero, enforced by an automated CI gate | Zero known today; unverified by automation |
 | Negative tests covering safety boundaries | Present and enforced as a release gate | Absent in this repository |
+| Time to a first useful read-only result for a customer with no prior exposure | A single working session, using only the quickstart, without writing code | `[TO BE MEASURED]` Capture during the first real adoption |
+| Customer-specific logic, names or assumptions inside the core | Zero, enforced by the same automated gate as sanitization | Zero known today; unverified by automation |
 
 Baseline capture method: record, for the first two real adoptions, the elapsed time, the ordered list of manual steps, the set of files edited, and any change made to the core. Those records become the baseline for the metrics above.
 
@@ -209,6 +213,8 @@ Baseline capture method: record, for the first two real adoptions, the elapsed t
 | Reference workload is AKS | Evidence: the reference implementation scopes to `Microsoft.ContainerService/managedClusters` in its production scope contract, the only Azure resource type present in its scope contracts and tool policies. `examples/minimal/` stays workload-neutral to prove the core is not AKS-coupled. |
 | No fixed external deadline | Sequence by the `prd.md` Slice 1 through Slice 5 strategy; prefer a correct, reviewable foundation over speed. |
 | No empty folders or purposeless placeholders | Structure follows actual findings; material deviations are documented in an ADR or implementation plan. |
+| Quick wins for any customer | The recipe carries no customer-specific logic, names, queries or environment assumptions. Every customer-specific element is a consumer-supplied extension. A first useful read-only result must be reachable in one working session without writing code. Anything that requires bespoke engineering before the first result belongs in an extension, not in the core. |
+| Decided technology stack | ADR-0001 extends the upstream `microsoft/sre-agent` template kit. ADR-0002 makes Bicep the primary Infrastructure as Code implementation, with no Terraform implementation work owned here. ADR-0003 delivers the guided experience as a CLI wizard with read-only workload discovery. All three are Accepted. |
 
 ---
 
@@ -250,8 +256,8 @@ Assumptions made in autonomous mode; each is falsifiable and should be revisited
 | Baseline for time from zero to a validated deployment | First two real adoptions | `[TO BE MEASURED]` Do not state a number before it is measured |
 | English renaming of the state vocabulary, including `SEM_ACESSO` | Contract phase | Record original values as provenance |
 | Which candidate contract areas are Required, Recommended, Optional, or Out of scope | Contract phase | Per `prd.md`, classify with rationale and evidence |
-| IaC technology selection | Architecture phase | Weighted decision matrix plus ADR |
-| Azure SRE Agent binding design | Architecture phase | Must not leak into the runtime-agnostic core |
-| Guided deployment experience, if justified | Architecture phase | ADR required before implementation. Scope confirmed to include workload discovery and selection producing a scope contract. Technology is undecided: `prd.md` lists Azure deployment experience, portal-based UI, CLI bootstrap, PowerShell, Bash, GitHub Actions `workflow_dispatch`, and configuration generator as candidates |
-| Workload discovery mechanism | Architecture phase | Candidates include Azure Resource Graph queries and subscription enumeration. Must define eligibility rules, the read-only permissions required, and behaviour when discovery is not permitted |
+| IaC technology selection | Architecture phase | **CLOSED 2026-09-23** — ADR-0002 Accepted: Bicep primary, no Terraform work owned here, ARM JSON as compiled output only |
+| Azure SRE Agent binding design | Architecture phase | **CLOSED 2026-09-23** — ADR-0001 Accepted: `agent.json` is the concrete binding; it must not leak into the runtime-agnostic core |
+| Guided deployment experience, if justified | Architecture phase | **CLOSED 2026-09-23** — ADR-0003 Accepted: CLI wizard extending the upstream `new-agent` pattern, emitting a schema-validated scope contract |
+| Workload discovery mechanism | Architecture phase | **CLOSED 2026-09-23** — ADR-0003 Accepted: read-only Azure Resource Graph querying, scoped to a single operator-supplied subscription in v1. Eligibility rules and denied-discovery behaviour are specified in the contract phase |
 | Repository visibility flip to public | Governance | Requires a passed sanitization audit |

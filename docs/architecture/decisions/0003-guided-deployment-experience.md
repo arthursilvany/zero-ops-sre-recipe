@@ -1,7 +1,8 @@
 # Guided Deployment Experience
 
-**Status**: Proposed
+**Status**: Accepted
 **Date**: 2026-09-23
+**Accepted**: 2026-09-23
 **Depends on**: [0001 — Upstream Template Relationship](0001-upstream-template-relationship.md),
 [0002 — Infrastructure as Code](0002-infrastructure-as-code.md)
 
@@ -160,6 +161,19 @@ same scope contract.
   ADR-0002.
 - `workflow_dispatch` is retained as a possible *execution* surface for an already-committed
   scope contract. That is complementary and is not decided here.
+
+## Acceptance Note
+
+Accepted on 2026-09-23, together with the product direction that the recipe must deliver
+**quick wins for any customer** (CON-11). That direction settles the discovery-breadth
+question this ADR left open: **v1 discovery targets a single operator-supplied subscription
+scope**, because it is the lowest permission bar and the shortest path to a first result for
+a customer nobody has met before. Multi-subscription and multi-tenant breadth are deferred,
+and the scope contract schema must be shaped so that widening is purely additive.
+
+The same direction constrains the wizard itself: it must reach a useful read-only result
+without the operator writing code. Any step that would require bespoke authoring before the
+first result belongs in a consumer-supplied extension, not in the guided path.
 
 ## Implementation Notes
 

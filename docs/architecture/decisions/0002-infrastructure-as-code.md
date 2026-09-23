@@ -1,7 +1,8 @@
 # Infrastructure as Code
 
-**Status**: Proposed
+**Status**: Accepted
 **Date**: 2026-09-23
+**Accepted**: 2026-09-23
 **Depends on**: [0001 — Upstream Template Relationship](0001-upstream-template-relationship.md)
 
 ## Context
@@ -208,6 +209,20 @@ this repository verifies compatibility rather than owning the implementation.
 - Terraform remains available through the upstream `deploy-tf.sh` and `Deploy-Tf.ps1` entry
   points. Consumers choosing it accept the state-management obligations described above,
   which must be documented rather than hidden.
+
+## Acceptance Note
+
+Accepted on 2026-09-23 with an explicit reinforcement: **this repository performs no
+Terraform implementation work.** Terraform remains reachable only through the upstream
+`deploy-tf.sh` and `Deploy-Tf.ps1` entry points that already exist and are already
+maintained upstream. This framework authors no Terraform, ships no Terraform modules, and
+runs no Terraform quality gate beyond an optional compatibility check.
+
+If keeping the Terraform path ever begins to cost this repository real effort — for example
+if an upstream change breaks it and fixing it would mean owning code here — the correct
+response is to drop the Terraform path and record that in a superseding ADR, not to absorb
+the maintenance. Duplicated effort across IaC languages is precisely what `prd.md` warns
+against.
 
 ## Implementation Notes
 
