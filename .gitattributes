@@ -19,6 +19,10 @@
 tools/hooks/* text eol=lf
 .gitleaks.toml text eol=lf
 
+# The POSIX shim has no extension, so the rules above do not reach it. A CRLF
+# shebang here would surface as "bad interpreter" on every Linux caller.
+bin/zeroops text eol=lf
+
 # Immutable evidence and binary artifacts
 *.html -text
 *.docx binary

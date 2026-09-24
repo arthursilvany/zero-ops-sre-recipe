@@ -1,0 +1,248 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zero-ops-sre-recipe.contracts/schemas/framework-config.schema.json",
+  "title": "Framework configuration",
+  "description": "The versioned configuration contract required by FR-24. It separates eight concerns so that environment settings can vary while the workload definition does not (FR-36). No section may hold an inline secret: sensitive values are referenced through externalReferences and never carried here (SEC-013).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "frameworkDefaults",
+    "environments",
+    "workloads",
+    "toolIntegrations",
+    "observability",
+    "remediationPermissions",
+    "approvalPolicies",
+    "externalReferences"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "$ref": "#/$defs/schemaVersion"
+    },
+
+    "frameworkDefaults": {
+      "title": "Concern 1: global framework defaults",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["observationPeriod"],
+      "properties": {
+        "observationPeriod": { "$ref": "#/$defs/observationPeriod" },
+        "defaultEnvironment": { "$ref": "#/$defs/identifier" },
+        "evidenceRetentionDays": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Retention is bounded below by 1: a retention of zero would discard the evidence that every conclusion must resolve to."
+        }
+      }
+    },
+
+    "environments": {
+      "title": "Concern 2: environment settings",
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "subscriptionRef"],
+        "properties": {
+          "name": { "$ref": "#/$defs/identifier" },
+          "description": { "type": "string", "maxLength": 500 },
+          "subscriptionRef": {
+            "$ref": "#/$defs/externalReferenceName",
+            "description": "Names an entry in externalReferences. A subscription identifier is never written inline, because a committed configuration would then carry an environment identifier (SEC-013, NFR-02)."
+          },
+          "observationPeriod": { "$ref": "#/$defs/observationPeriod" }
+        }
+      }
+    },
+
+    "workloads": {
+      "title": "Concern 3: workload-specific settings",
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "inScope"],
+        "properties": {
+          "name": { "$ref": "#/$defs/identifier" },
+          "description": { "type": "string", "maxLength": 500 },
+          "extensionRef": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Names a workload extension. The core declares the seam; it ships no workload-type content of its own (FR-63, CON-11)."
+          },
+          "inScope": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "description": "An empty in-scope selection is rejected structurally by minItems as well as semantically, because a configuration that selects nothing would otherwise validate and deploy an agent that observes nothing (FR-28).",
+            "items": { "$ref": "#/$defs/scopeEntry" }
+          },
+          "outOfScope": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": { "$ref": "#/$defs/scopeEntry" }
+          }
+        }
+      }
+    },
+
+    "toolIntegrations": {
+      "title": "Concern 4: tool and integration settings",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["toolPolicyRef"],
+      "properties": {
+        "toolPolicyRef": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Names the tool policy that applies. The policy is defence in depth: the read-only guarantee derives from the RBAC grant, which Azure Resource Manager enforces, not from this declaration (SEC-001)."
+        },
+        "connectors": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "credentialRef"],
+            "properties": {
+              "name": { "$ref": "#/$defs/identifier" },
+              "endpointRef": { "$ref": "#/$defs/externalReferenceName" },
+              "credentialRef": { "$ref": "#/$defs/externalReferenceName" }
+            }
+          }
+        }
+      }
+    },
+
+    "observability": {
+      "title": "Concern 5: observability settings",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evidenceRequired"],
+      "properties": {
+        "evidenceRequired": {
+          "type": "boolean",
+          "description": "When true, a conclusion that resolves to no evidence entry is a validation failure rather than a warning."
+        },
+        "workspaceRef": { "$ref": "#/$defs/externalReferenceName" },
+        "queryCatalogueRef": { "type": "string", "minLength": 1, "maxLength": 200 }
+      }
+    },
+
+    "remediationPermissions": {
+      "title": "Concern 6: remediation permissions",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode"],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["readOnly", "proposeOnly"],
+          "description": "v1 admits no mutating mode. A value that permits mutation is absent from the contract rather than merely discouraged, so a configuration cannot request one and be silently downgraded."
+        },
+        "changeSetRequired": { "type": "boolean" }
+      }
+    },
+
+    "approvalPolicies": {
+      "title": "Concern 7: approval policies",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["selfApprovalPermitted"],
+      "properties": {
+        "selfApprovalPermitted": {
+          "type": "boolean",
+          "const": false,
+          "description": "Fixed false in v1. Self-approval would let a single principal both propose and authorise, which is the separation the approval ledger exists to record."
+        },
+        "minimumApprovers": { "type": "integer", "minimum": 1 },
+        "approverGroupRef": { "$ref": "#/$defs/externalReferenceName" }
+      }
+    },
+
+    "externalReferences": {
+      "title": "Concern 8: externally referenced sensitive values",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entries"],
+      "properties": {
+        "entries": {
+          "type": "array",
+          "uniqueItems": true,
+          "description": "Indirection only. Each entry names where a value lives; none carries the value. A property shaped like a secret is absent from this schema rather than validated, so an inline secret cannot be expressed at all (SEC-013).",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "provider", "locator"],
+            "properties": {
+              "name": { "$ref": "#/$defs/identifier" },
+              "provider": {
+                "type": "string",
+                "enum": ["keyVault", "managedIdentity", "environmentVariable"]
+              },
+              "locator": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300,
+                "description": "Where the value lives, never the value. A locator must not be a literal credential; the emitted artifact is committed by consumers."
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+
+  "$defs": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "The version of this schema the instance conforms to (FR-05, FR-29). A consumer pinned to version N keeps validating unchanged when N+1 ships (CC-C01)."
+    },
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{1,62}[a-z0-9]$",
+      "description": "Lowercase, hyphen-separated. Constrained so an identifier cannot carry arbitrary text, and English by construction (FR-03, CON-01)."
+    },
+    "externalReferenceName": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{1,62}[a-z0-9]$",
+      "description": "Names an entry in externalReferences. Resolution that the named entry exists is a semantic check, not a structural one."
+    },
+    "observationPeriod": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "end"],
+      "description": "An end that precedes its start is rejected by a semantic check; JSON Schema cannot compare two sibling values (FR-28).",
+      "properties": {
+        "start": { "type": "string", "format": "date-time" },
+        "end": { "type": "string", "format": "date-time" }
+      }
+    },
+    "scopeEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "selector"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["resourceGroup", "tag", "resource"],
+          "description": "Selection mechanism, deliberately not a workload type. The minimal example must stay workload-neutral (FR-63, CC-022)."
+        },
+        "selector": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300,
+          "description": "A placeholder in every shipped example. A literal resource identifier here would be an environment identifier in a committed file."
+        }
+      }
+    }
+  }
+}

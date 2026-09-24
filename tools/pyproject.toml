@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "zeroops-tools"
+version = "0.1.0"
+description = "Offline validation tooling for the Zero Ops SRE Agent Recipe."
+requires-python = ">=3.10"
+
+# Declared by version only. Hash pinning and a wheel-only, offline-capable
+# install path are the scope of T1.05 (issue #15, work item S3-15, finding
+# SEC-005) and are deliberately not implemented here: folding them in would
+# leave that task looking complete while its actual control was never built.
+dependencies = [
+    "jsonschema>=4.23,<5",
+]
+
+[project.scripts]
+zeroops = "zeroops.validate:main"
+
+[tool.setuptools]
+packages = ["zeroops"]

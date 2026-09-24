@@ -1,0 +1,9 @@
+#!/bin/sh
+# Argument-forwarding shim. It holds no behaviour of its own: any logic here
+# would exist only on one platform, and the two shims would drift apart the
+# first time one of them was edited.
+set -e
+here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+PYTHONPATH="$here/../tools${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONPATH
+exec "${ZEROOPS_PYTHON:-python3}" -m zeroops "$@"
