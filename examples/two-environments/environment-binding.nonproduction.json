@@ -1,0 +1,9 @@
+{
+  "schemaVersion": "1.0.0",
+  "name": "example-workload-nonproduction",
+  "environmentRef": "non-production",
+  "workloadRef": "example-workload",
+  "tier": "nonProduction",
+  "description": "Binds the single workload definition to the non-production environment. It carries no selection of its own: the scope lives in the workload and is not repeated here.",
+  "connectorRefs": ["diagnostics-workspace"]
+}

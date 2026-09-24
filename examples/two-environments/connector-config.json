@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "1.0.0",
+  "name": "diagnostics-workspace",
+  "kind": "logAnalytics",
+  "endpointRef": "workspace-endpoint",
+  "description": "A placeholder connector. The endpoint and the identity are both external references; no property in this document can carry a credential.",
+  "authentication": {
+    "method": "managedIdentity",
+    "credentialRef": "workspace-identity"
+  },
+  "access": {
+    "mode": "readOnly",
+    "networkAccess": "privateEndpoint"
+  },
+  "timeoutSeconds": 60
+}

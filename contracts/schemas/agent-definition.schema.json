@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zero-ops-sre-recipe.contracts/schemas/agent-definition.schema.json",
+  "title": "Agent definition",
+  "description": "The runtime-agnostic definition of an agent (CON-03). It names capability classes, never the tool identifiers of a specific runtime version: that mapping belongs to the binding layer, which is the indirection that contains the open item on unconfirmed runtime identifiers. The concrete agent.json emitted from this appears only under core/binding/ (ADR-0001).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "name",
+    "targetScopeRef",
+    "accessLevel",
+    "actionMode",
+    "modelProvider",
+    "consumptionLimit",
+    "capabilities"
+  ],
+  "properties": {
+    "schemaVersion": { "$ref": "#/$defs/schemaVersion" },
+
+    "name": { "$ref": "#/$defs/identifier" },
+
+    "description": { "type": "string", "maxLength": 500 },
+
+    "targetScopeRef": {
+      "$ref": "#/$defs/sha256Hex",
+      "description": "The canonical hash of the scope contract this agent was defined against, not a copy of the scope. Binding to the hash is what makes drift detectable: if the scope changes, the recomputed digest stops matching and the mismatch is visible before deployment rather than after (FR-23)."
+    },
+
+    "accessLevel": {
+      "type": "string",
+      "enum": ["readOnly"],
+      "const": "readOnly",
+      "description": "Fixed in v1. This declaration is defence in depth only: the read-only guarantee derives from the RBAC grant that Azure Resource Manager enforces, not from this property (SEC-001). A definition claiming read-only over a write-capable grant is caught by the RBAC check, not here."
+    },
+
+    "actionMode": {
+      "type": "string",
+      "enum": ["observe", "propose"],
+      "description": "v1 admits no mutating mode. A value permitting mutation is absent from the enumeration rather than rejected by a rule, so a definition cannot request one and be silently downgraded to something safer than it asked for."
+    },
+
+    "modelProvider": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "deploymentRef"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["azureOpenAi", "azureAiFoundry"],
+          "description": "The class of model host. An enumeration, so an unrecognised provider fails validation instead of reaching a dispatcher at run time."
+        },
+        "deploymentRef": {
+          "$ref": "#/$defs/externalReferenceName",
+          "description": "Names an external reference holding the deployment locator. Referenced rather than inlined: a literal deployment endpoint in a committed file is a customer environment identifier (NFR-02)."
+        }
+      }
+    },
+
+    "consumptionLimit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["maxToolCalls", "maxWallClockSeconds"],
+      "description": "Required, because an agent without a declared ceiling has one anyway, set by a runtime default this contract never stated.",
+      "properties": {
+        "maxToolCalls": { "type": "integer", "minimum": 1 },
+        "maxWallClockSeconds": { "type": "integer", "minimum": 1 }
+      }
+    },
+
+    "capabilities": {
+      "type": "array",
+      "uniqueItems": true,
+      "description": "Required, and required even when empty. Omission is what this property exists to prevent: a runtime given no list inherits its global tool set, which includes write tools, so an emitted binding without an explicit list is a defect (NEG-D). An empty array is meaningful and says 'none'; an absent property cannot be expressed at all.",
+      "items": { "$ref": "#/$defs/capabilityClass" }
+    },
+
+    "skills": {
+      "type": "array",
+      "uniqueItems": true,
+      "description": "Optional named skills. Named, never inlined: a skill body here would be a free-form payload field, which no schema in this contract carries (SEC-013).",
+      "items": { "$ref": "#/$defs/identifier" }
+    }
+  },
+
+  "$defs": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "The version of this schema the instance conforms to (FR-05, FR-29)."
+    },
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{1,62}[a-z0-9]$",
+      "description": "Lowercase, hyphen-separated. Constrained so an identifier cannot carry arbitrary text, and English by construction (FR-03, CON-01)."
+    },
+    "externalReferenceName": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{1,62}[a-z0-9]$",
+      "description": "Names an entry in the framework configuration's externalReferences. The pattern cannot express a URL or a token, so a value pasted here fails validation rather than being committed."
+    },
+    "sha256Hex": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Lowercase hex, exactly 64 characters, as ADR-0004 pins."
+    },
+    "capabilityClass": {
+      "type": "string",
+      "enum": [
+        "readResourceMetadata",
+        "readResourceConfiguration",
+        "readMetrics",
+        "readLogs",
+        "readAlerts",
+        "readCostData",
+        "runCataloguedQuery"
+      ],
+      "description": "A closed set of read-shaped classes. Closed on purpose: a capability the runtime advertises and this contract does not classify fails the build rather than defaulting to allowed (NEG-C). Arbitrary query construction has no class here, which is how it is denied structurally rather than filtered at run time."
+    }
+  }
+}

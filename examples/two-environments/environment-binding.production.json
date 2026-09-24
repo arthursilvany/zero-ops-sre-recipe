@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "1.0.0",
+  "name": "example-workload-production",
+  "environmentRef": "production",
+  "workloadRef": "example-workload",
+  "tier": "production",
+  "description": "Binds the same workload definition to production. Only what differs between environments appears here: a shorter observation window, tighter limits, and a higher approval bar.",
+  "observationPeriodOverride": {
+    "start": "2026-01-07T00:00:00Z",
+    "end": "2026-01-08T00:00:00Z"
+  },
+  "executionLimitOverrides": {
+    "maxResultSetRows": 1000,
+    "perQueryTimeoutSeconds": 30
+  },
+  "approvalPolicyOverride": {
+    "minimumApprovers": 2
+  },
+  "connectorRefs": ["diagnostics-workspace"]
+}
