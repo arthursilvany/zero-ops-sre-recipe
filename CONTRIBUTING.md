@@ -50,6 +50,19 @@ Rules:
   `docs/envisioning/TEMPLATE.md`, and `docs/architecture/decisions/ADR-TEMPLATE.md`.
   Authoring conventions live in `.github/instructions/`.
 
+## Local setup
+
+Before your first commit, enable the local secret gate:
+
+```sh
+git config core.hooksPath tools/hooks
+```
+
+This requires [gitleaks](https://github.com/gitleaks/gitleaks) on your `PATH`. The hook
+scans full history before a push leaves your machine and refuses to pass silently when
+gitleaks is missing. See [SECURITY.md](SECURITY.md) for what it checks and what to do if
+something slips through.
+
 ## Branching and commits
 
 - Trunk-based development off `main`. Direct pushes to `main` are not permitted.
