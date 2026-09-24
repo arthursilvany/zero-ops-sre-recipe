@@ -1,0 +1,53 @@
+{
+  "interpreterFloor": "3.11",
+  "interpreterFloorReason": "rpds-py 2026.6.3 declares requires_python >= 3.11. A floor of 3.10 would either fail to resolve or silently resolve an older rpds-py, which is the drift this lock exists to prevent. The floor is therefore set by the strictest member of the closure, not chosen.",
+
+  "pythonTags": ["cp311", "cp312", "cp313"],
+
+  "platformTags": [
+    "manylinux_2_17_x86_64.manylinux2014_x86_64",
+    "manylinux_2_17_aarch64.manylinux2014_aarch64",
+    "win_amd64",
+    "macosx_11_0_arm64",
+    "macosx_10_12_x86_64"
+  ],
+  "platformReason": "The platforms an operator workstation or CI runner is actually expected to be. Every additional platform is additional signed material to audit, so the list is deliberately short. An unlisted platform fails the install loudly rather than falling back to a source distribution.",
+
+  "packages": [
+    {
+      "name": "jsonschema",
+      "version": "4.23.0",
+      "role": "direct",
+      "requiresPython": ">=3.8",
+      "reason": "JSON Schema 2020-12 structural validation (ADR-0004). Hand-rolling a validator would re-solve a solved problem, and a subtly wrong one reports success it has not established."
+    },
+    {
+      "name": "attrs",
+      "version": "26.1.0",
+      "role": "transitive",
+      "requiresPython": ">=3.9",
+      "reason": "Required by jsonschema and by referencing."
+    },
+    {
+      "name": "jsonschema-specifications",
+      "version": "2025.9.1",
+      "role": "transitive",
+      "requiresPython": ">=3.9",
+      "reason": "Required by jsonschema. Carries the published metaschemas."
+    },
+    {
+      "name": "referencing",
+      "version": "0.37.0",
+      "role": "transitive",
+      "requiresPython": ">=3.10",
+      "reason": "Required by jsonschema and by jsonschema-specifications."
+    },
+    {
+      "name": "rpds-py",
+      "version": "2026.6.3",
+      "role": "transitive",
+      "requiresPython": ">=3.11",
+      "reason": "Required by jsonschema and by referencing. The only compiled member of the closure: it ships platform-specific binaries built from Rust, so it is the one package whose hash pin protects against a substituted binary rather than substituted source."
+    }
+  ]
+}

@@ -75,7 +75,8 @@ dependency tree installed there is a security surface, not just an ergonomic one
 - **Deterministic serialization**: Meets. An RFC 8785 (JSON Canonicalization Scheme)
   implementation is available, and canonicalisation plus hashing is pinned explicitly in
   this ADR rather than left to library defaults.
-- **Dependency surface**: Meets. Two runtime dependencies. Wheel-only, hash-pinned
+- **Dependency surface**: Meets. Two runtime dependencies (corrected to a five-package
+  closure by the 2026-09-24 addendum). Wheel-only, hash-pinned
   installation is available through pip.
 - **Cross-platform**: Meets fully.
 - **Testability**: Meets fully. `pytest` as a development-only dependency.
@@ -209,6 +210,50 @@ the PowerShell path. It is unconditional in practice only because every relevant
 passes the switch. If a future upstream change stopped passing it, the premise of this ADR
 would weaken, and the upgrade compatibility test required by ADR-0001 should therefore
 assert that the prerequisite is still enforced.
+
+## Addendum, 2026-09-24: the measured dependency closure
+
+Recorded during T1.05, when the closure was resolved against PyPI for the first time.
+The decision is unchanged. Two statements made when it was accepted are not accurate,
+and are corrected here rather than edited in place.
+
+**The closure is five packages, not two.** The *Dependency surface* evaluation of Option 1
+says "Two runtime dependencies", counting direct imports. The installed tree is:
+
+| Package | Version | Role | requires_python | Wheels pinned |
+|---------|---------|------|-----------------|---------------|
+| `jsonschema` | 4.23.0 | direct | `>=3.8` | 1 |
+| `attrs` | 26.1.0 | transitive | `>=3.9` | 1 |
+| `jsonschema-specifications` | 2025.9.1 | transitive | `>=3.9` | 1 |
+| `referencing` | 0.37.0 | transitive | `>=3.10` | 1 |
+| `rpds-py` | 2026.6.3 | transitive | `>=3.11` | 15 |
+
+The count matters because priority 4 is *auditable* surface, and what an auditor installs
+is the closure, not the import list. The reviewed closure and the reason each package is
+admitted now live in `tools/supply-chain.json`.
+
+**One member is compiled.** `rpds-py` ships platform-specific binaries built from Rust,
+without a stable ABI, so it needs one hash per supported interpreter and platform pair.
+This sharpens the hash pin rather than weakening it: for the other four packages the hash
+covers source an auditor can read, and for this one it is the only thing standing between
+the operator workstation and a substituted binary. It is also why the platform list is
+deliberately short, and why an unlisted platform fails the install loudly instead of
+falling back to a source distribution.
+
+**The interpreter floor is 3.11, and is derived rather than chosen.** It is the strictest
+`requires_python` in the closure. An earlier floor of `>=3.10`, written before the closure
+was measured, would have resolved an older `rpds-py` silently, which is precisely the
+drift the lock exists to prevent. `generate_lock.py --verify` now fails the build if the
+declared floor ever drops below what a member requires, so this class of error cannot
+recur unnoticed.
+
+**The tooling package is not installed.** The bullet above states that hash pinning means
+"no arbitrary code runs at install time". Installing the project's own source tree would
+run a build backend and break that property, so `tools/pyproject.toml` was removed: the
+`bin/` shims put `tools/` on `PYTHONPATH`, and the only third-party code entering the
+workstation is the closure above. The second runtime dependency anticipated here, an
+RFC 8785 implementation, is still outstanding and is a T1.10 decision; if it is taken as a
+dependency rather than written, this table and the lock must both be regenerated.
 
 ## Implementation Notes
 
