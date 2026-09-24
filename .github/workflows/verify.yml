@@ -1,0 +1,69 @@
+name: Verify
+
+# Structural gates that do not need Azure access and must hold on every change.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  upstream-pin:
+    name: Upstream pin is an immutable digest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.13'
+
+      - name: Reject a tag, a branch or an abbreviated pin
+        run: python tools/upstream/verify_upstream.py --check-lock
+
+      - name: Assert the pin is recorded, not merely well-formed
+        # --check-lock passes on a valid commit digest with no content digest.
+        # That state is a legitimate intermediate during a pin bump, but it must
+        # never reach the default branch, because verification would then have
+        # nothing to compare a fetched tree against.
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import sys
+
+          lock = json.load(open("deploy/upstream.lock", encoding="utf-8"))
+          digest = lock["upstream"].get("contentSha256")
+          if not digest:
+              sys.exit("upstream.contentSha256 is not recorded; the pin cannot verify a fetch.")
+          if len(digest) != 64 or digest != digest.lower():
+              sys.exit(f"upstream.contentSha256 is not a lowercase hex SHA-256: {digest!r}")
+          print(f"contentSha256 recorded: {digest}")
+          PY
+
+  tests:
+    name: Offline tests (${{ matrix.os }})
+    # Both runners, because FR-19 and FR-23 require a byte-identical artifact and
+    # an identical digest across platforms. A single-runner suite cannot show that.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.13'
+
+      - name: Run the offline suite with no Azure access
+        run: python -m unittest discover -s tests -p "test_*.py" -t . -v

@@ -14,6 +14,18 @@ appsettings.*.local.json
 .azure/
 .credentials/
 
+# Customer vocabulary: plaintext and salt must NEVER be committed.
+# ADR-0006 stores only salted digests; the plaintext lives outside this
+# repository. A committed denylist would be the disclosure the control exists
+# to prevent, so it is ignored here and additionally fails the scan rule
+# 'zeroops-plaintext-denylist' in .gitleaks.toml.
+denylist.txt
+deny-list.txt
+blocklist.txt
+forbidden-terms.*
+*.vocabulary.txt
+*.denylist.salt
+
 # Infrastructure as Code state and local artifacts
 *.tfstate
 *.tfstate.*
@@ -25,13 +37,19 @@ crash.log
 *.bicepparam.local
 
 # Build, run output and volatile evidence
+# NOTE: 'bin/' is deliberately NOT ignored. In this repository bin/ holds the
+# committed 'zeroops' entry-point shims, not build output. Ignoring it would
+# silently drop them from every commit.
 out/
-bin/
 obj/
 dist/
 tmp/
 *.log
 *.tmp
+
+# Upstream template layer, fetched and verified at run time rather than vendored
+# (ADR-0001). Never commit a fetched copy: it would become an unpinned fork.
+deploy/upstream/
 
 # Tooling caches
 __pycache__/
