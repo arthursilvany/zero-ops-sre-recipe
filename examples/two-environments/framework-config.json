@@ -1,0 +1,100 @@
+{
+  "schemaVersion": "1.0.0",
+
+  "frameworkDefaults": {
+    "observationPeriod": {
+      "start": "2026-01-01T00:00:00Z",
+      "end": "2026-01-08T00:00:00Z"
+    },
+    "defaultEnvironment": "non-production",
+    "evidenceRetentionDays": 90
+  },
+
+  "environments": [
+    {
+      "name": "non-production",
+      "description": "Placeholder environment. Its subscription is referenced, never written here.",
+      "subscriptionRef": "nonproduction-subscription"
+    },
+    {
+      "name": "production",
+      "description": "Placeholder environment. Observed under a shorter period and a stricter approval bar.",
+      "subscriptionRef": "production-subscription"
+    }
+  ],
+
+  "workloads": [
+    {
+      "name": "example-workload",
+      "description": "Declared once. Both environment bindings reference this name; neither restates the selection below, which is what FR-36 means by 'without duplicating the workload definition'.",
+      "inScope": [
+        {
+          "kind": "resourceGroup",
+          "selector": "<RESOURCE_GROUP_NAME>"
+        }
+      ],
+      "outOfScope": [
+        {
+          "kind": "tag",
+          "selector": "<EXCLUDED_TAG_NAME>"
+        }
+      ]
+    }
+  ],
+
+  "toolIntegrations": {
+    "toolPolicyRef": "read-only-baseline",
+    "connectors": [
+      {
+        "name": "diagnostics-workspace",
+        "endpointRef": "workspace-endpoint",
+        "credentialRef": "workspace-identity"
+      }
+    ]
+  },
+
+  "observability": {
+    "evidenceRequired": true,
+    "workspaceRef": "workspace-endpoint"
+  },
+
+  "remediationPermissions": {
+    "mode": "readOnly",
+    "changeSetRequired": true
+  },
+
+  "approvalPolicies": {
+    "selfApprovalPermitted": false,
+    "minimumApprovers": 1
+  },
+
+  "externalReferences": {
+    "entries": [
+      {
+        "name": "nonproduction-subscription",
+        "provider": "environmentVariable",
+        "locator": "ZEROOPS_NONPROD_SUBSCRIPTION_ID"
+      },
+      {
+        "name": "production-subscription",
+        "provider": "environmentVariable",
+        "locator": "ZEROOPS_PROD_SUBSCRIPTION_ID"
+      },
+      {
+        "name": "workspace-endpoint",
+        "provider": "keyVault",
+        "locator": "<KEY_VAULT_SECRET_NAME>"
+      },
+      {
+        "name": "workspace-identity",
+        "provider": "managedIdentity",
+        "locator": "<MANAGED_IDENTITY_NAME>"
+      },
+      {
+        "name": "model-deployment",
+        "provider": "environmentVariable",
+        "locator": "ZEROOPS_MODEL_DEPLOYMENT"
+      }
+    ]
+  }
+}

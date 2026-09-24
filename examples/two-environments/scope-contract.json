@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "1.0.0",
+  "subscriptionRef": "production-subscription",
+  "inScope": [
+    {
+      "kind": "resourceGroup",
+      "selector": "<RESOURCE_GROUP_NAME>"
+    }
+  ],
+  "outOfScope": [
+    {
+      "kind": "tag",
+      "selector": "<EXCLUDED_TAG_NAME>"
+    }
+  ],
+  "observationPeriod": {
+    "start": "2026-01-07T00:00:00Z",
+    "end": "2026-01-08T00:00:00Z"
+  },
+  "executionLimits": {
+    "maxToolCalls": 200,
+    "maxWallClockSeconds": 900,
+    "maxResultSetRows": 1000,
+    "perQueryTimeoutSeconds": 30
+  },
+  "generatedAt": "2026-01-08T00:00:00Z",
+  "generatedAgainst": "<DISCOVERY_RUN_IDENTIFIER>",
+  "canonicalHash": "11031b87962c0a9030f9caad1a792488084fc178367c3373e4c7a86845518bd3"
+}

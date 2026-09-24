@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zero-ops-sre-recipe.contracts/schemas/scope-contract.schema.json",
+  "title": "Scope contract",
+  "description": "The root declaration of what the agent may observe. Every downstream artifact binds to canonicalHash, so this is the anchor of the evidence chain. Never committed with real values: the framework ships this schema and placeholder examples only (NFR-02).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "subscriptionRef",
+    "inScope",
+    "outOfScope",
+    "observationPeriod",
+    "executionLimits",
+    "generatedAt",
+    "generatedAgainst",
+    "canonicalHash"
+  ],
+  "properties": {
+    "schemaVersion": { "$ref": "#/$defs/schemaVersion" },
+
+    "subscriptionRef": {
+      "$ref": "#/$defs/externalReferenceName",
+      "description": "Names an external reference rather than carrying a subscription identifier. A single subscription in v1; widening to a list later is additive, because a consumer pinned to this version keeps validating (CC-C01)."
+    },
+
+    "inScope": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "description": "An empty selection is rejected structurally as well as semantically. Without minItems a contract that selects nothing would validate, and the agent it provisioned would observe nothing while appearing correctly configured (FR-28).",
+      "items": { "$ref": "#/$defs/scopeEntry" }
+    },
+
+    "outOfScope": {
+      "type": "array",
+      "uniqueItems": true,
+      "description": "Required but may be empty. Exclusions are declared explicitly and never implied by omission, so the difference between 'not selected' and 'deliberately excluded' survives into the evidence chain.",
+      "items": { "$ref": "#/$defs/scopeEntry" }
+    },
+
+    "observationPeriod": { "$ref": "#/$defs/observationPeriod" },
+
+    "executionLimits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "maxToolCalls",
+        "maxWallClockSeconds",
+        "maxResultSetRows",
+        "perQueryTimeoutSeconds"
+      ],
+      "description": "All four limits are required. An omitted limit would fall back to a runtime default that this contract does not state, so the bound would exist without being declared.",
+      "properties": {
+        "maxToolCalls": { "type": "integer", "minimum": 1 },
+        "maxWallClockSeconds": { "type": "integer", "minimum": 1 },
+        "maxResultSetRows": { "type": "integer", "minimum": 1 },
+        "perQueryTimeoutSeconds": { "type": "integer", "minimum": 1 }
+      }
+    },
+
+    "generatedAt": {
+      "$ref": "#/$defs/timestamp",
+      "description": "When the selection was taken. Point-in-time snapshot metadata, so drift between selection and deployment is detectable rather than silent."
+    },
+
+    "generatedAgainst": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "An opaque marker for the state the selection was taken against, such as a discovery run identifier. Not a resource identifier: this file is committed."
+    },
+
+    "canonicalHash": {
+      "$ref": "#/$defs/sha256Hex",
+      "description": "SHA-256 over the RFC 8785 canonical form of this document with this property removed, lowercase hex (ADR-0004). Self-exclusion is part of the definition: a document carrying its own digest while it was computed could never reproduce it."
+    }
+  },
+
+  "$defs": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "The version of this schema the instance conforms to (FR-05, FR-29)."
+    },
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{1,62}[a-z0-9]$",
+      "description": "Lowercase, hyphen-separated. Constrained so an identifier cannot carry arbitrary text, and English by construction (FR-03, CON-01)."
+    },
+    "externalReferenceName": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{1,62}[a-z0-9]$",
+      "description": "Names an entry in the framework configuration's externalReferences. That the named entry resolves is a semantic check; JSON Schema cannot reach another document."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?Z$",
+      "description": "RFC 3339, UTC, Z-suffixed. The pattern is present because format is an annotation by default: without it, 'next tuesday' would validate as a date-time. UTC is required so two timestamps can be compared lexically."
+    },
+    "sha256Hex": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Lowercase hex, exactly 64 characters, as ADR-0004 pins. Uppercase is rejected rather than folded: a digest that compares unequal to its own recomputation is the failure this field exists to detect."
+    },
+    "observationPeriod": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "end"],
+      "description": "An end that precedes its start is rejected by a semantic check; JSON Schema cannot compare two sibling values (FR-28).",
+      "properties": {
+        "start": { "$ref": "#/$defs/timestamp" },
+        "end": { "$ref": "#/$defs/timestamp" }
+      }
+    },
+    "scopeEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "selector"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["resourceGroup", "tag", "resource"],
+          "description": "Selection mechanism, deliberately not a workload type. The core ships no workload-type content of its own (FR-63, CC-022)."
+        },
+        "selector": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300,
+          "description": "A placeholder in every shipped example. A literal resource identifier here would be a customer environment identifier in a committed file."
+        }
+      }
+    }
+  }
+}

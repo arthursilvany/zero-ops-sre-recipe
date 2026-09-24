@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "1.0.0",
+  "name": "example-observer",
+  "description": "Runtime-agnostic. It names capability classes, never the tool identifiers of a specific runtime version; that mapping belongs to the binding layer.",
+  "targetScopeRef": "11031b87962c0a9030f9caad1a792488084fc178367c3373e4c7a86845518bd3",
+  "accessLevel": "readOnly",
+  "actionMode": "observe",
+  "modelProvider": {
+    "kind": "azureOpenAi",
+    "deploymentRef": "model-deployment"
+  },
+  "consumptionLimit": {
+    "maxToolCalls": 200,
+    "maxWallClockSeconds": 900
+  },
+  "capabilities": [
+    "readResourceMetadata",
+    "readMetrics",
+    "readLogs",
+    "readAlerts"
+  ]
+}

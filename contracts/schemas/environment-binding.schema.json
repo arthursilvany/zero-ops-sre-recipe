@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zero-ops-sre-recipe.contracts/schemas/environment-binding.schema.json",
+  "title": "Environment binding",
+  "description": "Binds one workload definition to one environment (FR-36). The binding references a workload by name and supplies only what differs between environments. It cannot restate the workload's scope: no selection property exists here, so a second environment is a new binding rather than a second copy of the workload, and the two cannot drift apart.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "name", "environmentRef", "workloadRef", "tier"],
+  "properties": {
+    "schemaVersion": { "$ref": "#/$defs/schemaVersion" },
+
+    "name": {
+      "$ref": "#/$defs/identifier",
+      "description": "Names this binding. Distinct from the workload it binds, so the same workload can carry several bindings."
+    },
+
+    "environmentRef": {
+      "$ref": "#/$defs/identifier",
+      "description": "Names an environment declared in the framework configuration. That the environment exists is a semantic check."
+    },
+
+    "workloadRef": {
+      "$ref": "#/$defs/identifier",
+      "description": "Names a workload declared in the framework configuration. The workload's scope selection lives there and only there. This is the mechanism that makes 'without duplicating the workload definition' structural rather than a convention (FR-36)."
+    },
+
+    "tier": {
+      "type": "string",
+      "enum": ["nonProduction", "production"],
+      "description": "The two tiers FR-36 requires at minimum. An enumeration rather than free text, so a typo produces a validation failure instead of a third tier nobody declared."
+    },
+
+    "observationPeriodOverride": {
+      "$ref": "#/$defs/observationPeriod",
+      "description": "Optional. When absent the environment's period applies, and when that is absent the framework default does. Precedence is resolved by a semantic check, not here."
+    },
+
+    "executionLimitOverrides": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "description": "Optional, and every member is optional, but an empty object is rejected: a declared override that overrides nothing reads as intent that was never expressed.",
+      "properties": {
+        "maxToolCalls": { "type": "integer", "minimum": 1 },
+        "maxWallClockSeconds": { "type": "integer", "minimum": 1 },
+        "maxResultSetRows": { "type": "integer", "minimum": 1 },
+        "perQueryTimeoutSeconds": { "type": "integer", "minimum": 1 }
+      }
+    },
+
+    "connectorRefs": {
+      "type": "array",
+      "uniqueItems": true,
+      "description": "Names connector configurations that apply in this environment. Names only: a connector's endpoint and credential are external references declared in the connector configuration, never restated here (SEC-013).",
+      "items": { "$ref": "#/$defs/identifier" }
+    },
+
+    "approvalPolicyOverride": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minimumApprovers"],
+      "description": "A binding may raise the approval bar for production. It cannot lower the self-approval prohibition, which is why selfApprovalPermitted is absent from this object rather than present and constrained (SEC-016).",
+      "properties": {
+        "minimumApprovers": { "type": "integer", "minimum": 1 }
+      }
+    },
+
+    "description": { "type": "string", "maxLength": 500 }
+  },
+
+  "$defs": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "The version of this schema the instance conforms to (FR-05, FR-29)."
+    },
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{1,62}[a-z0-9]$",
+      "description": "Lowercase, hyphen-separated. Constrained so an identifier cannot carry arbitrary text, and English by construction (FR-03, CON-01)."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?Z$",
+      "description": "RFC 3339, UTC, Z-suffixed. The pattern is present because format is an annotation by default."
+    },
+    "observationPeriod": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "end"],
+      "description": "An end that precedes its start is rejected by a semantic check; JSON Schema cannot compare two sibling values (FR-28).",
+      "properties": {
+        "start": { "$ref": "#/$defs/timestamp" },
+        "end": { "$ref": "#/$defs/timestamp" }
+      }
+    }
+  }
+}

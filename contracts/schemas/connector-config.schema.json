@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zero-ops-sre-recipe.contracts/schemas/connector-config.schema.json",
+  "title": "Connector configuration",
+  "description": "A declared data-source connection. The declaration is committed; the credential never is. Every property that could carry a secret is an external reference name, and no property capable of holding a literal credential exists in this schema, so an inline secret is inexpressible rather than merely invalid (FR-30, SEC-013).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "name", "kind", "endpointRef", "authentication"],
+  "properties": {
+    "schemaVersion": { "$ref": "#/$defs/schemaVersion" },
+
+    "name": {
+      "$ref": "#/$defs/identifier",
+      "description": "Names this connector. Environment bindings reference it by this name."
+    },
+
+    "kind": {
+      "type": "string",
+      "enum": ["logAnalytics", "metrics", "resourceGraph", "http"],
+      "description": "The class of data source. An enumeration rather than free text: an unrecognised kind fails validation instead of reaching a dispatcher that would decide what to do with it at run time."
+    },
+
+    "endpointRef": {
+      "$ref": "#/$defs/externalReferenceName",
+      "description": "Names an external reference holding the endpoint. Endpoints are referenced rather than inlined because a literal endpoint in a committed file is a customer environment identifier (NFR-02)."
+    },
+
+    "authentication": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method"],
+      "description": "How the connection authenticates. No property here carries material: the method names a mechanism and credentialRef names where a value lives.",
+      "properties": {
+        "method": {
+          "type": "string",
+          "enum": ["managedIdentity", "workloadIdentity"],
+          "description": "Both are federated and hold no material in configuration. Methods that require a stored credential are absent from this enumeration rather than discouraged, so the contract cannot express one."
+        },
+        "credentialRef": {
+          "$ref": "#/$defs/externalReferenceName",
+          "description": "Optional, and an indirection only. Names an entry in externalReferences; it never carries the value. Present so a consumer whose identity is provisioned elsewhere can point at it."
+        }
+      }
+    },
+
+    "access": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode"],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["readOnly"],
+          "const": "readOnly",
+          "description": "Fixed in v1. A single-member enumeration states the constraint twice on purpose: a mutating mode is both absent from the contract and pinned, so widening it is a deliberate schema change rather than a configuration choice."
+        },
+        "networkAccess": {
+          "type": "string",
+          "enum": ["publicEndpoint", "privateEndpoint"],
+          "description": "Declared rather than inferred, so a connector reaching a public endpoint is visible in review instead of discovered at run time."
+        }
+      }
+    },
+
+    "timeoutSeconds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 600,
+      "description": "Bounded above as well as below. An unbounded timeout would let one connector consume the execution's whole wall-clock budget and starve the rest."
+    },
+
+    "description": { "type": "string", "maxLength": 500 }
+  },
+
+  "$defs": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "The version of this schema the instance conforms to (FR-05, FR-29)."
+    },
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{1,62}[a-z0-9]$",
+      "description": "Lowercase, hyphen-separated. Constrained so an identifier cannot carry arbitrary text, and English by construction (FR-03, CON-01)."
+    },
+    "externalReferenceName": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{1,62}[a-z0-9]$",
+      "description": "Names an entry in the framework configuration's externalReferences. The pattern is deliberately narrow: it cannot express a URL, a connection string or a bearer token, so a value pasted here fails validation rather than being committed."
+    }
+  }
+}

@@ -130,6 +130,11 @@
         "purpose": "Workload-neutral starting point a consumer copies and edits (FR-63)."
       },
       {
+        "path": "examples/two-environments/",
+        "status": "present",
+        "purpose": "One workload bound to two environments, demonstrating that a second environment adds a binding rather than a second copy of the workload (FR-36)."
+      },
+      {
         "path": "examples/reference-workload/",
         "status": "planned",
         "purpose": "A worked reference with placeholders only.",
