@@ -1,0 +1,80 @@
+# Gitleaks configuration for the Zero Ops SRE Agent Recipe.
+#
+# This file is the machine-readable form of the "Never commit" section of
+# SECURITY.md. The default gitleaks rule pack covers credential material; the
+# custom rules below cover the environment-identifier classes that are specific
+# to this repository and that no generic secret scanner looks for.
+#
+# Scope note: this gate is run by CI over the FULL history reachable from the
+# default branch, not over the working tree. A working-tree-only scan passes on
+# a repository whose history is already poisoned, which is the exact failure
+# this configuration exists to prevent.
+
+title = "Zero Ops SRE Agent Recipe"
+
+[extend]
+useDefault = true
+
+# --- Environment identifiers -------------------------------------------------
+
+[[rules]]
+id = "zeroops-azure-subscription-path"
+description = "Azure subscription identifier inside a resource path"
+regex = '''/subscriptions/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'''
+tags = ["zeroops", "identifier", "azure"]
+
+[[rules]]
+id = "zeroops-azure-resource-id"
+description = "Fully qualified Azure resource identifier"
+regex = '''/subscriptions/[^/\s"']+/resourceGroups/[^/\s"']+/providers/[A-Za-z0-9.]+/'''
+tags = ["zeroops", "identifier", "azure"]
+
+[[rules]]
+id = "zeroops-directory-identifier"
+description = "Tenant, subscription, client, object or principal identifier bound to a GUID"
+regex = '''(?i)\b(tenant|subscription|client|object|principal|application)[ _-]?id\b["'\s:=>]{1,8}\{?[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\}?'''
+tags = ["zeroops", "identifier", "azure"]
+
+[[rules]]
+id = "zeroops-environment-endpoint"
+description = "Environment-specific Azure endpoint hostname"
+regex = '''https?://[a-z0-9][a-z0-9-]{2,}\.(?:vault\.azure\.net|azurecr\.io|azurewebsites\.net|kusto\.windows\.net|blob\.core\.windows\.net|table\.core\.windows\.net|queue\.core\.windows\.net|file\.core\.windows\.net|database\.windows\.net|servicebus\.windows\.net|search\.windows\.net|azure-api\.net|cognitiveservices\.azure\.com|openai\.azure\.com)'''
+tags = ["zeroops", "identifier", "endpoint"]
+
+  [rules.allowlist]
+  description = "Public, non-environment-specific service endpoints and documented placeholders"
+  regexes = [
+    '''https?://(?:management|login|graph|prices|portal|learn|docs)\.''',
+    '''https?://(?:example|placeholder|contoso|fabrikam|your-\w+|my-\w+)[.-]''',
+  ]
+
+# --- Structural guards -------------------------------------------------------
+
+[[rules]]
+id = "zeroops-plaintext-denylist"
+description = "Plaintext customer-vocabulary denylist committed to the repository"
+path = '''(?i)(^|/)(denylist|deny-list|blocklist|forbidden-terms)\.(txt|json|ya?ml|csv)$'''
+regex = '''.'''
+tags = ["zeroops", "structural", "sc-13"]
+
+# --- Repository-wide allowlist ----------------------------------------------
+
+[allowlist]
+description = "Placeholders, null identifiers, and the documents that define the patterns"
+
+paths = [
+  '''(^|/)\.gitleaks\.toml$''',
+  '''(^|/)SECURITY\.md$''',
+  '''(^|/)docs/architecture/decisions/0005-.*\.md$''',
+]
+
+regexes = [
+  # Documented placeholder forms. SECURITY.md mandates these.
+  '''<[A-Z_]+>''',
+  '''\$\{[A-Z_]+\}''',
+  '''\{\{[a-zA-Z_.]+\}\}''',
+  # The all-zero GUID is the canonical "no identifier" value.
+  '''0{8}-0{4}-0{4}-0{4}-0{12}''',
+  # The redacted reference customer.
+  '''<REFERENCE_CUSTOMER>''',
+]

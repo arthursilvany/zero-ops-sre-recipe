@@ -1,0 +1,61 @@
+#!/bin/sh
+#
+# Client-side push protection for the Zero Ops SRE Agent Recipe.
+#
+# Why this exists: GitHub's platform push protection is not available on a
+# private repository without GitHub Advanced Security (see ADR-0005). Platform
+# push protection blocks a secret before it reaches the remote; a CI workflow
+# only reports after the push has already landed, and git history is
+# irreversible. This hook restores the "block before it leaves the machine"
+# property using the same rule set CI enforces.
+#
+# This hook is defence in depth, not the gate of record. It is bypassable with
+# --no-verify and it only runs for contributors who enabled it. The CI
+# workflow in .github/workflows/security-scan.yml is the enforced control.
+#
+# Enable with:
+#   git config core.hooksPath tools/hooks
+
+set -eu
+
+repo_root=$(git rev-parse --show-toplevel)
+config="${repo_root}/.gitleaks.toml"
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  printf '%s\n' \
+    "pre-push: gitleaks is not installed, so secrets cannot be checked locally." \
+    "pre-push: install it (https://github.com/gitleaks/gitleaks) or push with" \
+    "pre-push:   git push --no-verify" \
+    "pre-push: and accept that CI is your only remaining gate before history is written." >&2
+  exit 1
+fi
+
+if [ ! -f "${config}" ]; then
+  printf 'pre-push: %s is missing; refusing to push unscanned.\n' "${config}" >&2
+  exit 1
+fi
+
+printf 'pre-push: scanning full history for secrets and environment identifiers...\n' >&2
+
+# The full history is scanned rather than the pushed range. A rebase, an
+# amend, or a first push of an existing branch can carry commits the range
+# would not cover, and this repository is small enough that the cost is
+# negligible.
+if gitleaks detect \
+  --config "${config}" \
+  --source "${repo_root}" \
+  --redact \
+  --no-banner \
+  --exit-code 1 >&2; then
+  printf 'pre-push: clean.\n' >&2
+  exit 0
+fi
+
+printf '%s\n' \
+  "" \
+  "pre-push: PUSH BLOCKED. A secret or environment identifier was found in history." \
+  "pre-push: The finding is redacted above; run the scan locally without --redact to see it." \
+  "pre-push: Removing the file in a new commit is NOT sufficient - the value stays in" \
+  "pre-push: history. Follow the history-rewrite remediation path in SECURITY.md." >&2
+
+exit 1

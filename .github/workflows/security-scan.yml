@@ -1,0 +1,87 @@
+name: Security scan
+
+# The repository is expected to become public and git history is irreversible,
+# so this gate runs over every commit reachable from the default branch rather
+# than over the checked-out working tree. A working-tree scan passes on a
+# repository whose history is already poisoned.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    # History can be poisoned by a force-push that no push or pull_request
+    # event covers, so re-scan independently of contributor activity.
+    - cron: '17 6 * * 1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-scan-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Pinned by version and verified by digest. An unpinned installer is an
+  # arbitrary-code-execution path into every run of this gate.
+  GITLEAKS_VERSION: 8.30.1
+  GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+
+jobs:
+  history-scan:
+    name: Full-history secret and identifier scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the full history
+        # Pinned to an immutable commit digest, not a tag. A tag is mutable and
+        # is therefore not an integrity control (ADR-0001, SEC-004).
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+
+      - name: Assert the full history was fetched
+        # fetch-depth is a request, not a guarantee. A shallow clone would make
+        # the scan below silently weaker while still reporting success.
+        run: |
+          set -euo pipefail
+          if [ "$(git rev-parse --is-shallow-repository)" != "false" ]; then
+            echo "::error::Clone is shallow; the history scan would be incomplete." >&2
+            exit 1
+          fi
+          echo "Commits reachable from HEAD: $(git rev-list --count HEAD)"
+
+      - name: Install gitleaks, verified by digest
+        run: |
+          set -euo pipefail
+          archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          url="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${archive}"
+          curl --fail --silent --show-error --location --retry 3 --output "$archive" "$url"
+          echo "${GITLEAKS_SHA256}  ${archive}" | sha256sum --check --strict
+          tar -xzf "$archive" gitleaks
+          install -m 0755 gitleaks /usr/local/bin/gitleaks
+          rm -f "$archive" gitleaks
+          gitleaks version
+
+      - name: Scan every commit reachable from HEAD
+        # --redact keeps a detected value out of the run log. Without it this
+        # gate would republish, in a log, the secret it just found.
+        run: |
+          set -euo pipefail
+          gitleaks detect \
+            --config .gitleaks.toml \
+            --source . \
+            --redact \
+            --no-banner \
+            --report-format sarif \
+            --report-path gitleaks.sarif \
+            --exit-code 1
+
+      - name: Publish the redacted report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: gitleaks-sarif
+          path: gitleaks.sarif
+          if-no-files-found: ignore
+          retention-days: 30

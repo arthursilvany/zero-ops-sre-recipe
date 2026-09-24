@@ -13,6 +13,12 @@
 *.tfvars text eol=lf
 *.kql    text eol=lf
 
+# Git hooks are executed by /bin/sh. A CRLF shebang makes the hook fail with a
+# confusing "bad interpreter" error, which on a security hook would look like a
+# broken tool rather than an unprotected push.
+tools/hooks/* text eol=lf
+.gitleaks.toml text eol=lf
+
 # Immutable evidence and binary artifacts
 *.html -text
 *.docx binary
