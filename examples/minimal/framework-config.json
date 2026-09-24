@@ -1,0 +1,61 @@
+{
+  "schemaVersion": "1.0.0",
+
+  "frameworkDefaults": {
+    "observationPeriod": {
+      "start": "2026-01-01T00:00:00Z",
+      "end": "2026-01-08T00:00:00Z"
+    },
+    "defaultEnvironment": "primary",
+    "evidenceRetentionDays": 90
+  },
+
+  "environments": [
+    {
+      "name": "primary",
+      "description": "The single environment this minimal example observes.",
+      "subscriptionRef": "target-subscription"
+    }
+  ],
+
+  "workloads": [
+    {
+      "name": "example-workload",
+      "description": "Workload-neutral by construction. Scope is expressed as a selection mechanism, never as a workload type.",
+      "inScope": [
+        {
+          "kind": "resourceGroup",
+          "selector": "<RESOURCE_GROUP_NAME>"
+        }
+      ]
+    }
+  ],
+
+  "toolIntegrations": {
+    "toolPolicyRef": "read-only-baseline"
+  },
+
+  "observability": {
+    "evidenceRequired": true
+  },
+
+  "remediationPermissions": {
+    "mode": "readOnly",
+    "changeSetRequired": true
+  },
+
+  "approvalPolicies": {
+    "selfApprovalPermitted": false,
+    "minimumApprovers": 1
+  },
+
+  "externalReferences": {
+    "entries": [
+      {
+        "name": "target-subscription",
+        "provider": "environmentVariable",
+        "locator": "ZEROOPS_SUBSCRIPTION_ID"
+      }
+    ]
+  }
+}

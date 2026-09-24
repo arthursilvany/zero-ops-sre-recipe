@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "1.0.0",
+  "unknownProperty": "This fixture exists so the rejection path is exercised against a real artifact on disk, not only against a document assembled in memory.",
+  "frameworkDefaults": {
+    "observationPeriod": {
+      "start": "2026-01-01T00:00:00Z",
+      "end": "2026-01-08T00:00:00Z"
+    }
+  },
+  "environments": [
+    {
+      "name": "primary",
+      "subscriptionRef": "target-subscription"
+    }
+  ],
+  "workloads": [
+    {
+      "name": "example-workload",
+      "inScope": [
+        {
+          "kind": "resourceGroup",
+          "selector": "<RESOURCE_GROUP_NAME>"
+        }
+      ]
+    }
+  ],
+  "toolIntegrations": {
+    "toolPolicyRef": "read-only-baseline"
+  },
+  "observability": {
+    "evidenceRequired": true
+  },
+  "remediationPermissions": {
+    "mode": "readOnly"
+  },
+  "approvalPolicies": {
+    "selfApprovalPermitted": false
+  },
+  "externalReferences": {
+    "entries": [
+      {
+        "name": "target-subscription",
+        "provider": "environmentVariable",
+        "locator": "ZEROOPS_SUBSCRIPTION_ID"
+      }
+    ]
+  }
+}
