@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zero-ops-sre-recipe.contracts/schemas/core-paths.schema.json",
+  "title": "Core path declaration",
+  "description": "FR-61 requires the framework to declare which paths constitute the core and which are consumer-editable. This schema constrains that declaration so it stays a checkable input to the SC-01 diff rather than prose. FR-04 additionally requires the runtime binding layer to be enumerated, so a fourth category exists for it: the core is only meaningfully runtime-agnostic if the runtime-specific part is named.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "runtimeIdentifiers",
+    "selfExclusions",
+    "categories"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+
+    "runtimeIdentifiers": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "description": "Identifiers, formats and capability names specific to one runtime. FR-04 forbids these inside core paths. An empty list would make the FR-04 check pass vacuously, so minItems forbids it.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["term", "reason"],
+        "properties": {
+          "term": { "type": "string", "minLength": 2, "maxLength": 100 },
+          "reason": { "type": "string", "minLength": 1, "maxLength": 300 }
+        }
+      }
+    },
+
+    "selfExclusions": {
+      "type": "array",
+      "uniqueItems": true,
+      "description": "Paths exempt from the FR-04 search. Only files that must name a runtime identifier in order to forbid it belong here, and each carries its justification. Exclusions are exact paths, never patterns: a pattern would silently widen as the repository grows.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "reason"],
+        "properties": {
+          "path": { "$ref": "#/$defs/path" },
+          "reason": { "type": "string", "minLength": 1, "maxLength": 300 }
+        }
+      }
+    },
+
+    "categories": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["core", "binding", "frameworkOwned", "consumerEditable", "tests", "repositoryMeta"],
+      "description": "Every tracked file must fall under exactly one category. A file matching none of them fails the check, so content cannot appear in the repository outside the declaration.",
+      "properties": {
+        "core": {
+          "$ref": "#/$defs/entryList",
+          "description": "Runtime-agnostic declarative contract. Subject to FR-04, and the baseline SC-01 measures against."
+        },
+        "binding": {
+          "$ref": "#/$defs/entryList",
+          "description": "The only place a runtime identifier may appear (FR-04, CON-03). Removing it must leave the core internally consistent."
+        },
+        "frameworkOwned": {
+          "$ref": "#/$defs/entryList",
+          "description": "Executable tooling and deployment composition. Not consumer-editable, and not subject to FR-04, because implementing a binding necessarily names the runtime."
+        },
+        "consumerEditable": {
+          "$ref": "#/$defs/entryList",
+          "description": "Where a consumer's own content lives. Onboarding a workload must touch only these paths (SC-01)."
+        },
+        "tests": { "$ref": "#/$defs/entryList" },
+        "repositoryMeta": {
+          "$ref": "#/$defs/entryList",
+          "description": "Documentation, governance and automation. Changes here do not count against SC-01."
+        }
+      }
+    }
+  },
+
+  "$defs": {
+    "path": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "pattern": "^[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*/?$",
+      "description": "A repository-relative path using forward slashes. A trailing slash denotes a directory prefix."
+    },
+    "entryList": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "status", "purpose"],
+        "properties": {
+          "path": { "$ref": "#/$defs/path" },
+          "status": {
+            "type": "string",
+            "enum": ["present", "planned"],
+            "description": "A 'planned' entry declares intent before the content exists, which NFR-24 requires because a directory holding only a keep-file is forbidden. It must name the task that materialises it, so the declaration cannot become permanent fiction."
+          },
+          "purpose": { "type": "string", "minLength": 1, "maxLength": 300 },
+          "materialisedBy": {
+            "type": "string",
+            "pattern": "^T[0-9]+\\.[0-9]+$",
+            "description": "Required when status is 'planned'."
+          }
+        },
+        "allOf": [
+          {
+            "if": { "properties": { "status": { "const": "planned" } }, "required": ["status"] },
+            "then": { "required": ["materialisedBy"] }
+          },
+          {
+            "if": { "properties": { "status": { "const": "present" } }, "required": ["status"] },
+            "then": {
+              "not": { "required": ["materialisedBy"] },
+              "description": "A present path has already been materialised; carrying a task reference would leave a stale pointer behind."
+            }
+          }
+        ]
+      }
+    }
+  }
+}

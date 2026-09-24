@@ -4,14 +4,22 @@
 
 *.md     text eol=lf
 *.json   text eol=lf
+*.jsonc  text eol=lf
 *.yaml   text eol=lf
 *.yml    text eol=lf
+*.toml   text eol=lf
 *.ps1    text eol=lf
+*.psm1   text eol=lf
 *.sh     text eol=lf
+*.py     text eol=lf
 *.bicep  text eol=lf
+*.bicepparam text eol=lf
 *.tf     text eol=lf
 *.tfvars text eol=lf
 *.kql    text eol=lf
+*.csv    text eol=lf
+*.txt    text eol=lf
+*.lock   text eol=lf
 
 # Git hooks are executed by /bin/sh. A CRLF shebang makes the hook fail with a
 # confusing "bad interpreter" error, which on a security hook would look like a
