@@ -36,6 +36,44 @@ class CoreDeclarationHolds(unittest.TestCase):
     def test_declaration_holds_against_this_repository(self):
         self.assertEqual([], core_paths.check(REPO_ROOT))
 
+    def test_the_gate_sees_a_file_that_is_written_but_not_yet_staged(self):
+        """A green result before `git add` would be a false green.
+
+        The check enumerates files through git. With plain `ls-files` it sees
+        only what is already staged or committed, so a contributor could write
+        a new core file, run the gate, be told the declaration holds, and learn
+        otherwise only after staging. The file is scanned while it is still
+        untracked, which is when the author is actually looking at it.
+        """
+        import tempfile
+
+        directory = os.path.join(REPO_ROOT, "contracts", "schemas")
+        handle, path = tempfile.mkstemp(suffix=".probe.json", dir=directory)
+        os.close(handle)
+        relative = os.path.relpath(path, REPO_ROOT).replace(os.sep, "/")
+        try:
+            self.assertIn(relative, core_paths.tracked_files(REPO_ROOT))
+        finally:
+            os.remove(path)
+
+    def test_the_gate_ignores_a_file_git_would_ignore(self):
+        """Widening the scan must not drag in files that are never committed."""
+        import tempfile
+
+        handle, path = tempfile.mkstemp(suffix=".pyc", dir=REPO_ROOT)
+        os.close(handle)
+        relative = os.path.relpath(path, REPO_ROOT).replace(os.sep, "/")
+        ignored = subprocess.run(
+            ["git", "check-ignore", "-q", relative],
+            cwd=REPO_ROOT, capture_output=True, text=True,
+        ).returncode == 0
+        try:
+            if not ignored:
+                self.skipTest("%s is not ignored by this repository" % relative)
+            self.assertNotIn(relative, core_paths.tracked_files(REPO_ROOT))
+        finally:
+            os.remove(path)
+
     def test_declaration_validates_against_its_own_schema(self):
         from jsonschema import Draft202012Validator
 

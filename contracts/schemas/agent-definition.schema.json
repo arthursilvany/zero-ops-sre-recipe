@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://zero-ops-sre-recipe.contracts/schemas/agent-definition.schema.json",
   "title": "Agent definition",
-  "description": "The runtime-agnostic definition of an agent (CON-03). It names capability classes, never the tool identifiers of a specific runtime version: that mapping belongs to the binding layer, which is the indirection that contains the open item on unconfirmed runtime identifiers. The concrete agent.json emitted from this appears only under core/binding/ (ADR-0001).",
+  "description": "The runtime-agnostic definition of an agent (CON-03). It names capability classes, never the tool identifiers of a specific runtime version: that mapping belongs to the binding layer, which is the indirection that contains the open item on unconfirmed runtime identifiers. The concrete runtime definition file emitted from this appears only under core/binding/, and its filename is a binding-layer concern that this contract deliberately does not name (ADR-0001, FR-04).",
   "type": "object",
   "additionalProperties": false,
   "required": [
