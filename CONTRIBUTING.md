@@ -95,14 +95,27 @@ scans full history before a push leaves your machine and refuses to pass silentl
 gitleaks is missing. See [SECURITY.md](SECURITY.md) for what it checks and what to do if
 something slips through.
 
-Then install the tooling package and run the offline gates. Neither needs Azure access:
+Then install the reviewed dependency closure and run the offline gates. Neither needs
+Azure access:
 
 ```sh
-python -m pip install ./tools
+python -m pip install --require-hashes --only-binary=:all: -r tools/requirements.lock
 bin/zeroops validate examples/minimal/
 bin/zeroops check-core
+python tools/supply_chain/generate_lock.py --verify
 python -m unittest discover -s tests -p "test_*.py" -t .
 ```
+
+Both pip flags are load-bearing: `--require-hashes` refuses anything absent from the
+lock, and `--only-binary=:all:` refuses a source distribution, which would run a build
+on your machine at install time. The `zeroops` package itself is deliberately not
+installed. The `bin/` shims put `tools/` on `PYTHONPATH`, so the only third-party code
+entering your workstation is the reviewed closure in
+[`tools/supply-chain.json`](tools/supply-chain.json).
+
+Python 3.11 or newer is required. That floor is not a preference: it is the strictest
+`requires_python` in the closure, and
+`python tools/supply_chain/generate_lock.py --verify` fails if it ever drops below one.
 
 On Windows, use `bin\zeroops.ps1` in place of `bin/zeroops`.
 
