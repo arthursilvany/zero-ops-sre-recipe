@@ -102,6 +102,7 @@ Azure access:
 python -m pip install --require-hashes --only-binary=:all: -r tools/requirements.lock
 bin/zeroops validate examples/minimal/
 bin/zeroops check-core
+bin/zeroops hash examples/minimal/framework-config.json
 python tools/supply_chain/generate_lock.py --verify
 python -m unittest discover -s tests -p "test_*.py" -t .
 ```
