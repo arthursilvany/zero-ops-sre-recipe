@@ -114,3 +114,30 @@ control.
 - GitHub Advanced Security becomes available to the owning account.
 - The SC-13 salted-digest vocabulary gate lands, which may absorb part of the custom rule
   set.
+
+## Amendment, 2026-09-24: branch protection is blocked by the same root cause
+
+Attempting to require pull requests and a passing security scan before merge to `main`
+fails for the same reason:
+
+```text
+POST /repos/<OWNER>/<REPO>/rulesets
+HTTP 403
+{"message":"Upgrade to GitHub Pro or make this repository public to enable this feature."}
+```
+
+This is the second control blocked by "private repository on a free personal account",
+and it compounds the first. Without branch protection there is no merge gate, so the
+security scan cannot block anything at all: it runs after a direct push to `main` has
+already landed, and nothing prevents that push.
+
+The two findings therefore share one remedy. Making the repository public restores both
+push protection and branch protection at no cost. That is not an argument for publishing
+early — publication is still the event these gates exist to make safe, so it must follow
+the completion of User Story 3, not precede it.
+
+The consequence for sequencing is explicit: **complete the repository-safety work, then
+publish, then enable both controls as part of publication.** Until then, `CONTRIBUTING.md`
+forbids direct pushes to `main` by convention only, and convention is not enforcement.
+That gap is stated here rather than hidden, because an unenforced rule that reads like an
+enforced one is the more dangerous of the two.

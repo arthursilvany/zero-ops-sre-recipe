@@ -1,0 +1,22 @@
+{
+  "$comment": "Immutable pin of the upstream template layer. See ADR-0001 and SEC-004. A tag is mutable and is therefore not an integrity control; only the commit digest is authoritative. Changing this file is a security-reviewed change, not a version bump. Verified by tools/upstream/verify_upstream.py.",
+  "lockVersion": "1.0.0",
+  "upstream": {
+    "repository": "https://github.com/microsoft/sre-agent",
+    "path": "sreagent-templates",
+    "license": "MIT",
+    "commit": "53e7b66ef79bccf0b79cc331d5c64bb03b75a4b0",
+    "treeSha1": "b0f6ac993f3490f21116c75a54ed5cb10174a5b4",
+    "contentSha256": "6a87186ba50f83e95baf28bf26315838f7bce75872db09aebf937227e7ed3035",
+    "declaredVersion": "1.0.1",
+    "commitDate": "2026-09-22T14:58:01Z"
+  },
+  "provenance": {
+    "acquiredOn": "2026-09-24",
+    "acquiredBy": "T3.04",
+    "acquiredFrom": "https://codeload.github.com/microsoft/sre-agent/tar.gz/53e7b66ef79bccf0b79cc331d5c64bb03b75a4b0",
+    "fileCount": 247,
+    "securityReviewed": false,
+    "notes": "contentSha256 attests to WHAT was pinned, not that it is safe. securityReviewed stays false until the composition work in S4-07 reviews the upstream code that will execute on the operator workstation. treeSha1 is the git object id of the pinned subtree and is independently verifiable with git, but it only covers a git transport; contentSha256 covers any transport, including the release tarball this pin was taken from. Raising the pin is a security-reviewed change, not a version bump: see deploy/README.md."
+  }
+}
