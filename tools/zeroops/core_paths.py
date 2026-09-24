@@ -42,8 +42,16 @@ def repo_root():
 
 
 def tracked_files(root):
+    """Every file git would carry, tracked or merely not ignored.
+
+    --others --exclude-standard is load-bearing. With plain ls-files the gate
+    sees only what is already staged or committed, so a contributor who writes
+    a new core file and runs this check gets a green result, and the violation
+    surfaces only after `git add`. A file that is not ignored is a file that is
+    about to be committed, so it belongs in scope now rather than one step later.
+    """
     result = subprocess.run(
-        ["git", "ls-files"],
+        ["git", "ls-files", "--cached", "--others", "--exclude-standard"],
         cwd=root,
         capture_output=True,
         text=True,
@@ -53,7 +61,12 @@ def tracked_files(root):
             "git ls-files failed, so the set of tracked files is unknown. "
             "Refusing to report a result computed from an unknown input."
         )
-    return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    seen = []
+    for line in result.stdout.splitlines():
+        path = line.strip()
+        if path and path not in seen:
+            seen.append(path)
+    return seen
 
 
 def load_declaration(root):
