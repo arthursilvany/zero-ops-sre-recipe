@@ -317,6 +317,36 @@ def _run_check_core():
     return EXIT_OK
 
 
+def _run_hash(args):
+    from zeroops import canonical
+
+    try:
+        with open(args.target, "r", encoding="utf-8") as handle:
+            document = canonical.load(handle.read())
+    except OSError as exc:
+        sys.stderr.write("error: cannot read %s: %s\n" % (args.target, exc.strerror))
+        return EXIT_USAGE
+    except UnicodeDecodeError:
+        sys.stderr.write(
+            "error: %s is not valid UTF-8. The canonical form is defined over "
+            "UTF-8 bytes.\n" % args.target
+        )
+        return EXIT_USAGE
+
+    try:
+        if args.canonical:
+            # Written as bytes so the platform's newline translation cannot
+            # touch output whose exact byte sequence is the point.
+            sys.stdout.buffer.write(canonical.canonicalise(document))
+            sys.stdout.buffer.flush()
+            return EXIT_OK
+        sys.stdout.write("%s\n" % canonical.digest(document, args.hash_field))
+        return EXIT_OK
+    except canonical.CanonicalisationError as exc:
+        sys.stderr.write("%s: %s\n" % (args.target, exc))
+        return EXIT_INVALID
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(
         prog="zeroops",
@@ -342,6 +372,25 @@ def main(argv=None):
         help="Check the core path declaration against the repository (FR-04, FR-61).",
     )
 
+    hash_parser = subparsers.add_parser(
+        "hash",
+        help="Print the canonical SHA-256 of a JSON document (FR-23).",
+    )
+    hash_parser.add_argument("target", help="Path to the JSON document.")
+    hash_parser.add_argument(
+        "--hash-field",
+        default=None,
+        help=(
+            "Top-level field removed before hashing, so a document can carry its "
+            "own digest and still reproduce it."
+        ),
+    )
+    hash_parser.add_argument(
+        "--canonical",
+        action="store_true",
+        help="Print the canonical bytes instead of the digest, for diffing.",
+    )
+
     args = parser.parse_args(argv)
 
     if args.command is None:
@@ -350,6 +399,9 @@ def main(argv=None):
 
     if args.command == "check-core":
         return _run_check_core()
+
+    if args.command == "hash":
+        return _run_hash(args)
 
     try:
         artifact, findings = validate(args.target, args.schema)

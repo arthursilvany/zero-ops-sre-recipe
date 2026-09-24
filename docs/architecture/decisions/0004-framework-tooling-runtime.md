@@ -254,6 +254,38 @@ run a build backend and break that property, so `tools/pyproject.toml` was remov
 workstation is the closure above. The second runtime dependency anticipated here, an
 RFC 8785 implementation, is still outstanding and is a T1.10 decision; if it is taken as a
 dependency rather than written, this table and the lock must both be regenerated.
+Resolved in T1.10: it was written rather than taken as a dependency, so the closure and
+the lock are unchanged. See the next section.
+
+**The RFC 8785 implementation is written here rather than taken as a dependency, and
+covers a proven subset.** T1.05 left this open. The closure was deliberately held to five
+packages, and the candidate on PyPI is a `0.1.x` release, single-maintainer, untouched
+since 2024, which would sit on the same high-privilege boundary the hash pin exists to
+protect. Against that, the input domain is fully controlled: every document this
+canonicalises is validated first against closed schemas that admit only strings,
+integers, booleans, null, arrays and objects. The one genuinely difficult part of
+RFC 8785, ECMAScript number formatting for non-integral doubles, is therefore outside the
+domain and is **not implemented**. A value that would need it is refused, not
+approximated, and so is an integer beyond 2^53-1, which a JavaScript runtime could not
+hold exactly. The closure therefore stays at five packages and the lock is unchanged.
+
+Two further refusals follow the same principle, that a digest which is stable and wrong
+is worse than one that stops: a JSON text naming the same member twice is rejected rather
+than resolved by last-wins, and two keys that collide under NFC are reported rather than
+silently merged, since either resolution would drop a value from the digest without
+anyone noticing.
+
+Conformance was checked against the reference implementation's published test vectors at
+authoring time. Those files are not committed: their repository states no licence. The
+committed cases are authored against RFC 8785 section 3.2 and carry literal expected
+digests, independently confirmed with a non-Python SHA-256 implementation, so the two CI
+runners cannot agree with themselves while disagreeing with each other.
+
+One deviation from plain JCS is deliberate and is the normalisation this ADR already
+pins: RFC 8785 does not normalise and requires pre-normalised input. Of the six reference
+vectors, three match byte for byte, two differ **solely** because of the NFC step, which
+was confirmed by re-running them with normalisation bypassed, and one is refused for
+containing non-integral numbers.
 
 ## Implementation Notes
 
