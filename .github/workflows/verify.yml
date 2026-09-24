@@ -74,3 +74,11 @@ jobs:
         # The suite exercises the shim for the platform it runs on, so the
         # matrix covers both shims between its two legs.
         run: python -m unittest discover -s tests -p "test_*.py" -t . -v
+
+      - name: Check the core declaration against the repository
+        # FR-04 and FR-61 are only real if a violation fails a build. This also
+        # fails when a new path appears that no category declares, which is what
+        # keeps the SC-01 baseline from quietly narrowing.
+        run: python -m zeroops check-core
+        env:
+          PYTHONPATH: tools

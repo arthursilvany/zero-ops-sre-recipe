@@ -1,0 +1,215 @@
+{
+  "schemaVersion": "1.0.0",
+  "runtimeIdentifiers": [
+    {
+      "term": "agent.json",
+      "reason": "The Azure SRE Agent definition file. ADR-0001 confines it to the binding layer; a core artifact that named it would bind the contract to one runtime."
+    },
+    {
+      "term": "sreagent",
+      "reason": "Upstream template and resource naming specific to Azure SRE Agent."
+    },
+    {
+      "term": "sre-agent",
+      "reason": "Upstream repository and CLI naming specific to Azure SRE Agent."
+    },
+    {
+      "term": "Microsoft.App/agents",
+      "reason": "The Azure Resource Manager type of the runtime. A core schema that referenced it could not describe any other runtime."
+    },
+    {
+      "term": "new-agent",
+      "reason": "The upstream scaffolding command the wizard extends (ADR-0003). The core declares the seam; only the binding may name the command."
+    }
+  ],
+  "selfExclusions": [
+    {
+      "path": "contracts/core-paths.json",
+      "reason": "This file must spell out the identifiers it forbids in order to forbid them. Excluding it is the same shape as the denylist disclosure problem in ADR-0006, resolved here by exact path rather than a pattern, so the exemption cannot widen silently."
+    },
+    {
+      "path": "contracts/schemas/core-paths.schema.json",
+      "reason": "Describes the structure of the declaration above, including the field that carries the forbidden terms."
+    }
+  ],
+  "categories": {
+    "core": [
+      {
+        "path": "contracts/schemas/",
+        "status": "present",
+        "purpose": "JSON Schema 2020-12 contracts, single source of truth (FR-05)."
+      },
+      {
+        "path": "contracts/core-paths.json",
+        "status": "present",
+        "purpose": "This declaration. Input to the SC-01 diff check (FR-61)."
+      },
+      {
+        "path": "contracts/vocabulary/",
+        "status": "planned",
+        "purpose": "English identifiers with recorded provenance (FR-03).",
+        "materialisedBy": "T1.06"
+      },
+      {
+        "path": "contracts/schema-register.md",
+        "status": "planned",
+        "purpose": "The register every schema must resolve against exactly once (FR-05).",
+        "materialisedBy": "T1.08"
+      },
+      {
+        "path": "core/policy/",
+        "status": "planned",
+        "purpose": "Tool policy expressed in capability classes, runtime-agnostic.",
+        "materialisedBy": "T2.03"
+      },
+      {
+        "path": "core/evidence/",
+        "status": "planned",
+        "purpose": "Evidence manifest model.",
+        "materialisedBy": "T8.01"
+      },
+      {
+        "path": "wizard/discovery/",
+        "status": "planned",
+        "purpose": "Read-only Resource Graph query definitions.",
+        "materialisedBy": "T4.02"
+      },
+      {
+        "path": "wizard/eligibility/",
+        "status": "planned",
+        "purpose": "Published eligibility rules.",
+        "materialisedBy": "T4.01"
+      },
+      {
+        "path": "extensions/README.md",
+        "status": "planned",
+        "purpose": "The extension contract. Ships a contract and no content (CON-11).",
+        "materialisedBy": "T9.03"
+      }
+    ],
+    "binding": [
+      {
+        "path": "core/binding/",
+        "status": "planned",
+        "purpose": "Azure SRE Agent binding. The only path where a runtime identifier may appear (FR-04, CON-03, ADR-0001).",
+        "materialisedBy": "T2.04"
+      }
+    ],
+    "frameworkOwned": [
+      {
+        "path": "tools/",
+        "status": "present",
+        "purpose": "The installable Python package: validator, wizard, emitter, broker (ADR-0004)."
+      },
+      {
+        "path": "bin/",
+        "status": "present",
+        "purpose": "Argument-forwarding entry points that hold no behaviour."
+      },
+      {
+        "path": "deploy/upstream.lock",
+        "status": "present",
+        "purpose": "Immutable upstream commit digest plus fetched-tree digest (ADR-0001)."
+      },
+      {
+        "path": "deploy/README.md",
+        "status": "present",
+        "purpose": "Acquisition as a trust-boundary crossing, and the pin-bump procedure."
+      },
+      {
+        "path": "deploy/compose/",
+        "status": "planned",
+        "purpose": "Bicep composition over pinned upstream modules (ADR-0002).",
+        "materialisedBy": "T5.01"
+      }
+    ],
+    "consumerEditable": [
+      {
+        "path": "examples/minimal/",
+        "status": "present",
+        "purpose": "Workload-neutral starting point a consumer copies and edits (FR-63)."
+      },
+      {
+        "path": "examples/reference-workload/",
+        "status": "planned",
+        "purpose": "A worked reference with placeholders only.",
+        "materialisedBy": "T9.02"
+      }
+    ],
+    "tests": [
+      {
+        "path": "tests/",
+        "status": "present",
+        "purpose": "Unit, validation, negative and Azure-requiring suites, separated per FR-41."
+      }
+    ],
+    "repositoryMeta": [
+      {
+        "path": "docs/",
+        "status": "present",
+        "purpose": "Specification, plan, tasks, architecture decisions and security review."
+      },
+      {
+        "path": ".github/",
+        "status": "present",
+        "purpose": "Workflows and authoring instructions."
+      },
+      {
+        "path": ".memory/",
+        "status": "present",
+        "purpose": "DevSquad SDD workflow configuration."
+      },
+      {
+        "path": "README.md",
+        "status": "planned",
+        "purpose": "Repository entry point, with counted files and steps.",
+        "materialisedBy": "T11.05"
+      },
+      {
+        "path": "CONTRIBUTING.md",
+        "status": "present",
+        "purpose": "Contribution rules and the settled repository structure."
+      },
+      {
+        "path": "SECURITY.md",
+        "status": "present",
+        "purpose": "Reporting, the secret gate, and the history-rewrite remediation path."
+      },
+      {
+        "path": "CODE_OF_CONDUCT.md",
+        "status": "present",
+        "purpose": "Adopted code of conduct."
+      },
+      {
+        "path": "LICENSE",
+        "status": "present",
+        "purpose": "MIT licence."
+      },
+      {
+        "path": "prd.md",
+        "status": "present",
+        "purpose": "The authoritative product requirements input this framework was built from."
+      },
+      {
+        "path": ".gitignore",
+        "status": "present",
+        "purpose": "Ignore rules, including the upstream secrets-file pattern (FR-49)."
+      },
+      {
+        "path": ".gitattributes",
+        "status": "present",
+        "purpose": "Line-ending policy for every emitted artifact type."
+      },
+      {
+        "path": ".gitleaks.toml",
+        "status": "present",
+        "purpose": "The shared rule file for all three secret-scanning layers (ADR-0005)."
+      },
+      {
+        "path": ".markdownlint.yaml",
+        "status": "present",
+        "purpose": "Markdown lint configuration."
+      }
+    ]
+  }
+}

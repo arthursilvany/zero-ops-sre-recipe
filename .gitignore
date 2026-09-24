@@ -14,6 +14,25 @@ appsettings.*.local.json
 .azure/
 .credentials/
 
+# Upstream secrets-file pattern (FR-49, SEC-013). The pinned upstream template
+# layer writes connector credentials to 'connectors.secrets.env' next to the
+# recipe being deployed, and its own recipes also ignore '*.secrets.env'.
+# Because the upstream tree is fetched into a consumer's working directory
+# rather than vendored, that file can land anywhere. Ignoring the pattern on
+# day one costs nothing; discovering it after a push costs a history rewrite.
+connectors.secrets.env
+*.secrets.env
+.parameters.json
+.extras.json
+
+# Discovery output (SEC-007). Read-only discovery writes a subscription-wide
+# inventory of real resource identifiers, names and tags. Tags are a well-known
+# place operators stash connection strings, so this is an identifier leak path
+# whether or not it contains a credential. It is ignored by default; a redacted
+# copy is what gets attached to a bug report.
+.zeroops/
+*.discovery.json
+
 # Customer vocabulary: plaintext and salt must NEVER be committed.
 # ADR-0006 stores only salted digests; the plaintext lives outside this
 # repository. A committed denylist would be the disclosure the control exists

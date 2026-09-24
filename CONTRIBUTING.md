@@ -33,7 +33,39 @@ Envisioning → Specification → ADR → Plan → Tasks → Implementation → 
 | Architecture decision | ADR | `docs/architecture/decisions/` |
 | Plan | Implementation plan | alongside the specification |
 | Tasks | Task breakdown | alongside the plan |
-| Implementation | Source, IaC, configuration, tests | `src/`, `infra/`, `config/`, `tests/` |
+| Implementation | Contracts, core, wizard, tooling, deployment, tests | `contracts/`, `core/`, `wizard/`, `tools/`, `deploy/`, `tests/` |
+
+## Repository structure
+
+The settled structure is declared in [`contracts/core-paths.json`](contracts/core-paths.json)
+and checked by `zeroops check-core`. It deviates from the structure proposed in `prd.md`;
+each deviation is recorded in the implementation plan under NFR-25.
+
+| Path | Holds | Editable by |
+|---|---|---|
+| `contracts/` | JSON Schema contracts, vocabulary, and the core-path declaration | Framework |
+| `core/` | Runtime-agnostic policy and evidence model | Framework |
+| `core/binding/` | The Azure SRE Agent binding, the only home of runtime-specific identifiers | Framework |
+| `wizard/` | Read-only discovery queries and published eligibility rules | Framework |
+| `tools/` | The installable Python package holding all behaviour | Framework |
+| `bin/` | Argument-forwarding entry points with no behaviour | Framework |
+| `deploy/` | The upstream pin and the Bicep composition over pinned modules | Framework |
+| `examples/` | Copyable starting points, placeholders only | Consumers |
+| `extensions/` | The extension contract; the seam workloads plug into | Consumers |
+| `tests/` | `unit`, `validation`, `negative`, and `azure` suites | Framework |
+
+Three rules follow from that table and are enforced rather than requested:
+
+- A runtime-specific identifier may appear only under `core/binding/`. `zeroops check-core`
+  fails the build otherwise (FR-04, CON-03).
+- Every tracked file must fall under exactly one declared category. Adding a directory
+  without declaring it fails the same check, because an undeclared path would silently
+  drop out of the core-stability measurement.
+- No directory may contain only a keep-file. A path is created when its first real
+  artifact exists, and is declared `planned` until then (NFR-24).
+
+There is no `src/`, `infra/`, `config/` or `terraform/` directory, and none should be
+added. Authoring Terraform here is out of scope by constraint, not by preference.
 
 Rules:
 
@@ -63,13 +95,24 @@ scans full history before a push leaves your machine and refuses to pass silentl
 gitleaks is missing. See [SECURITY.md](SECURITY.md) for what it checks and what to do if
 something slips through.
 
+Then install the tooling package and run the offline gates. Neither needs Azure access:
+
+```sh
+python -m pip install ./tools
+bin/zeroops validate examples/minimal/
+bin/zeroops check-core
+python -m unittest discover -s tests -p "test_*.py" -t .
+```
+
+On Windows, use `bin\zeroops.ps1` in place of `bin/zeroops`.
+
 ## Branching and commits
 
 - Trunk-based development off `main`. Direct pushes to `main` are not permitted.
 - Branch naming: `feature/<short-description>`, `fix/<short-description>`,
   `docs/<short-description>`.
 - Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/),
-  for example `feat(infra): add reusable managed identity module`.
+  for example `feat(contracts): add the environment binding schema`.
 
 ## Pull requests
 

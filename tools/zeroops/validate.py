@@ -296,6 +296,27 @@ def validate(target, schema_path=None):
     return artifact, semantic_findings(instance)
 
 
+def _run_check_core():
+    from zeroops import core_paths
+
+    try:
+        problems = core_paths.check()
+    except core_paths.CoreDeclarationError as exc:
+        sys.stderr.write("error: %s\n" % exc)
+        return EXIT_USAGE
+
+    if problems:
+        sys.stderr.write(
+            "Core declaration does not hold: %d problem(s).\n" % len(problems)
+        )
+        for problem in problems:
+            sys.stderr.write("  %s\n" % problem)
+        return EXIT_INVALID
+
+    sys.stdout.write("Core declaration holds: %s\n" % core_paths.DECLARATION_PATH)
+    return EXIT_OK
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(
         prog="zeroops",
@@ -316,11 +337,19 @@ def main(argv=None):
         help="Override the schema path. Defaults to contracts/schemas/%s." % SCHEMA_FILENAME,
     )
 
+    subparsers.add_parser(
+        "check-core",
+        help="Check the core path declaration against the repository (FR-04, FR-61).",
+    )
+
     args = parser.parse_args(argv)
 
     if args.command is None:
         parser.print_help()
         return EXIT_USAGE
+
+    if args.command == "check-core":
+        return _run_check_core()
 
     try:
         artifact, findings = validate(args.target, args.schema)
