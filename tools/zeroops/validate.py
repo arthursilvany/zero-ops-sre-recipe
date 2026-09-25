@@ -1,6 +1,6 @@
 """Offline validation of framework configuration artifacts.
 
-Two layers run here, and the split is deliberate.
+Three layers run here, in order, and the ordering is the design.
 
 Structural validation is delegated to a JSON Schema implementation. Re-authoring
 one would mean re-solving a solved problem, and a subtly wrong validator is
@@ -10,7 +10,14 @@ Semantic validation covers the constraints JSON Schema cannot express, because
 they relate two values rather than constrain one (FR-28). An observation window
 that ends before it starts, or a reference naming an entry that does not exist,
 is structurally well-formed and operationally broken. Leaving those to deploy
-time would move the failure to the point where it costs the most.
+time would move the failure to the point where it costs the most. Semantic
+checks are gated behind structural success rather than merged with it, because
+running them over a malformed shape produces noise that buries the real fault.
+
+Recommended-area warnings are the third layer (FR-01, CON-11). They report what
+a production deployment will want and a first result does not need. A warning
+never changes the exit code unless the caller passes --strict, so the quick win
+stays reachable while the gap stays visible. See obligations.py.
 
 Every failure names the artifact path and the JSON pointer to the offending
 location, and reports the shape of what was wrong, never the supplied value
@@ -24,6 +31,8 @@ import os
 import re
 import sys
 
+from zeroops import obligations
+
 # JSON Schema treats "format" as an annotation by default, so a malformed
 # timestamp would pass structural validation. The semantic comparison below
 # relies on UTC RFC 3339 strings ordering lexically, so the shape is asserted
@@ -36,6 +45,7 @@ EXIT_USAGE = 2
 
 SCHEMA_FILENAME = "framework-config.schema.json"
 CONFIG_FILENAME = "framework-config.json"
+SCHEMA_SUFFIX = ".schema.json"
 
 
 class ValidationError(Exception):
@@ -59,6 +69,47 @@ def repo_root():
 
 def default_schema_path():
     return os.path.join(repo_root(), "contracts", "schemas", SCHEMA_FILENAME)
+
+
+def schema_directory():
+    return os.path.join(repo_root(), "contracts", "schemas")
+
+
+def known_kinds():
+    """Every artifact kind the register makes validatable, from the files."""
+    directory = schema_directory()
+    if not os.path.isdir(directory):
+        return []
+    return sorted(
+        name[: -len(SCHEMA_SUFFIX)]
+        for name in os.listdir(directory)
+        if name.endswith(SCHEMA_SUFFIX)
+    )
+
+
+def kind_of(path):
+    """The artifact kind an instance filename declares.
+
+    The part before the first dot, so that a set can hold more than one
+    instance of a kind: environment-binding.production.json and
+    environment-binding.nonproduction.json are both environment bindings.
+    Dispatching on the filename rather than on a field inside the document is
+    deliberate. A document that names its own schema can lie about which one
+    it is, and the cheapest way to pass validation would be to claim a laxer
+    kind.
+    """
+    return os.path.basename(path).split(".")[0]
+
+
+def schema_path_for(kind):
+    candidate = os.path.join(schema_directory(), kind + SCHEMA_SUFFIX)
+    if not os.path.isfile(candidate):
+        raise ValidationError(
+            "no schema for artifact kind '%s'. Known kinds: %s.\n"
+            "The kind is taken from the filename before the first dot."
+            % (kind, ", ".join(known_kinds()))
+        )
+    return candidate
 
 
 def load_json(path, what):
@@ -231,8 +282,98 @@ def semantic_findings(instance):
     return findings
 
 
+def _scope_contract_semantics(instance):
+    findings = []
+    _check_period(
+        instance.get("observationPeriod"), "/observationPeriod", findings
+    )
+    in_scope = instance.get("inScope") or []
+    out_of_scope = instance.get("outOfScope") or []
+    if isinstance(in_scope, list) and isinstance(out_of_scope, list):
+        for position, entry in enumerate(out_of_scope):
+            if entry in in_scope:
+                findings.append(
+                    Finding(
+                        pointer_of(["outOfScope", position]),
+                        "selector appears in both inScope and outOfScope, "
+                        "so the resolved scope is ambiguous",
+                    )
+                )
+    return findings
+
+
+def _check_ordering(instance, earlier, later, findings):
+    """Two timestamps that must not run backwards."""
+    first = instance.get(earlier)
+    second = instance.get(later)
+    malformed = False
+    for key in (earlier, later):
+        value = instance.get(key)
+        if isinstance(value, str) and not UTC_TIMESTAMP.match(value):
+            malformed = True
+            findings.append(
+                Finding(
+                    "/" + key,
+                    "is not a UTC RFC 3339 timestamp of the form "
+                    "YYYY-MM-DDThh:mm:ssZ",
+                )
+            )
+    if malformed:
+        return
+    if isinstance(first, str) and isinstance(second, str) and second < first:
+        findings.append(
+            Finding(
+                "/" + later,
+                "is earlier than %s, so the execution would have finished "
+                "before it began" % earlier,
+            )
+        )
+
+
+def _evidence_manifest_semantics(instance):
+    findings = []
+    _check_ordering(instance, "startedAt", "completedAt", findings)
+    return findings
+
+
+def _handoff_record_semantics(instance):
+    findings = []
+    turn = instance.get("turn")
+    max_turns = instance.get("maxTurns")
+    if isinstance(turn, int) and isinstance(max_turns, int) and turn > max_turns:
+        findings.append(
+            Finding(
+                "/turn",
+                "exceeds maxTurns, so the handoff records an execution that "
+                "has already passed the bound meant to stop it",
+            )
+        )
+    return findings
+
+
+SEMANTIC_RULES = {
+    "framework-config": semantic_findings,
+    "scope-contract": _scope_contract_semantics,
+    "evidence-manifest": _evidence_manifest_semantics,
+    "handoff-record": _handoff_record_semantics,
+}
+
+
+def semantic_findings_for(kind, instance):
+    """Semantic checks for one artifact kind.
+
+    A kind with no entry here is structurally checked only. That is reported by
+    the absence of a rule rather than hidden: a test asserts every kind whose
+    schema carries a relational constraint has a rule, so a kind is never
+    silently downgraded to structure-only by someone forgetting to add one.
+    """
+    rule = SEMANTIC_RULES.get(kind)
+    if rule is None or not isinstance(instance, dict):
+        return []
+    return rule(instance)
+
+
 def _reference_uses(instance):
-    """Yield (pointer, name) for every property that names an external reference."""
     uses = []
 
     for index, environment in enumerate(instance.get("environments") or []):
@@ -269,6 +410,34 @@ def _reference_uses(instance):
     return uses
 
 
+def resolve_artifacts(target):
+    """Every artifact a target names, in a stable order.
+
+    A directory is a configuration set, not a single file. Validating only
+    framework-config.json inside it would report success for a set whose other
+    members were never looked at, which is the failure mode this whole tool
+    exists to prevent.
+    """
+    if not os.path.isdir(target):
+        if not os.path.isfile(target):
+            raise ValidationError("artifact not found: %s" % target)
+        return [target]
+
+    kinds = set(known_kinds())
+    found = sorted(
+        os.path.join(target, name)
+        for name in os.listdir(target)
+        if name.endswith(".json") and kind_of(name) in kinds
+    )
+    if not found:
+        raise ValidationError(
+            "no recognised artifact in directory: %s.\n"
+            "An artifact is named <kind>.json or <kind>.<label>.json, where "
+            "kind is one of: %s." % (target, ", ".join(sorted(kinds)))
+        )
+    return found
+
+
 def resolve_artifact(target):
     """Accept either the configuration file or the directory that holds it."""
     if os.path.isdir(target):
@@ -281,19 +450,41 @@ def resolve_artifact(target):
     return target
 
 
-def validate(target, schema_path=None):
-    """Return the findings for one artifact. An empty list means it is valid."""
-    artifact = resolve_artifact(target)
-    schema = load_json(schema_path or default_schema_path(), "schema")
+def validate_artifact(artifact, schema_path=None):
+    """Structural, then semantic, then Recommended-area warnings."""
+    kind = kind_of(artifact)
+    path = schema_path or schema_path_for(kind)
+    schema = load_json(path, "schema")
     instance = load_json(artifact, "configuration")
 
     findings = structural_findings(instance, schema)
     if findings:
-        # Semantic checks assume a well-formed shape. Running them over a
-        # structurally invalid document produces noise that buries the real
-        # fault, so they are gated rather than merged.
-        return artifact, findings
-    return artifact, semantic_findings(instance)
+        # Semantic checks and warnings both assume a well-formed shape. Running
+        # them over a structurally invalid document produces noise that buries
+        # the real fault, so they are gated rather than merged.
+        return findings, []
+
+    findings = semantic_findings_for(kind, instance)
+    if findings:
+        return findings, []
+    return [], obligations.warnings_for(kind, instance)
+
+
+def validate(target, schema_path=None):
+    """Return (artifact, findings) for one artifact. Kept for callers that
+    validate a single document and do not consume warnings."""
+    artifact = resolve_artifact(target)
+    findings, _ = validate_artifact(artifact, schema_path)
+    return artifact, findings
+
+
+def validate_set(target, schema_path=None):
+    """Return [(artifact, findings, warnings)] for every artifact in a target."""
+    results = []
+    for artifact in resolve_artifacts(target):
+        findings, warnings = validate_artifact(artifact, schema_path)
+        results.append((artifact, findings, warnings))
+    return results
 
 
 def _run_check_core():
@@ -364,7 +555,17 @@ def main(argv=None):
     validate_parser.add_argument(
         "--schema",
         default=None,
-        help="Override the schema path. Defaults to contracts/schemas/%s." % SCHEMA_FILENAME,
+        help="Override the schema path. Defaults to the schema whose name "
+        "matches the artifact kind in contracts/schemas/.",
+    )
+    validate_parser.add_argument(
+        "--strict",
+        action="store_true",
+        help=(
+            "Treat Recommended-area warnings as failures. Off by default so a "
+            "first result stays reachable without authoring anything bespoke "
+            "(CON-11); on in a production readiness gate."
+        ),
     )
 
     subparsers.add_parser(
@@ -404,22 +605,42 @@ def main(argv=None):
         return _run_hash(args)
 
     try:
-        artifact, findings = validate(args.target, args.schema)
+        results = validate_set(args.target, args.schema)
     except ValidationError as exc:
         sys.stderr.write("error: %s\n" % exc)
         return EXIT_USAGE
 
-    if findings:
-        sys.stderr.write(
-            "Configuration rejected: %d finding(s).\n" % len(findings)
-        )
-        for finding in findings:
-            sys.stderr.write("  %s\n" % finding.render(artifact))
+    rejected = [(a, f) for a, f, _ in results if f]
+    warned = [(a, w) for a, _, w in results if w]
+
+    if rejected:
+        total = sum(len(f) for _, f in rejected)
+        sys.stderr.write("Configuration rejected: %d finding(s).\n" % total)
+        for artifact, findings in rejected:
+            for finding in findings:
+                sys.stderr.write("  %s\n" % finding.render(artifact))
         return EXIT_INVALID
 
-    sys.stdout.write("Configuration valid: %s\n" % artifact)
-    return EXIT_OK
+    for artifact, _, _ in results:
+        sys.stdout.write("Configuration valid: %s\n" % artifact)
+    sys.stdout.flush()
 
+    for artifact, warnings in warned:
+        for warning in warnings:
+            sys.stderr.write("  warning: %s\n" % warning.render(artifact))
+
+    total = sum(len(w) for _, w in warned)
+    if warned and args.strict:
+        sys.stderr.write(
+            "Rejected under --strict: %d Recommended-area warning(s).\n" % total
+        )
+        return EXIT_INVALID
+    if warned:
+        sys.stderr.write(
+            "%d Recommended-area warning(s). Valid for a first result; "
+            "review before production.\n" % total
+        )
+    return EXIT_OK
 
 if __name__ == "__main__":
     sys.exit(main())

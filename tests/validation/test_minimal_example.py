@@ -20,7 +20,7 @@ TOOLS_DIR = os.path.join(REPO_ROOT, "tools")
 MINIMAL_DIR = os.path.join(REPO_ROOT, "examples", "minimal")
 MINIMAL_CONFIG = os.path.join(MINIMAL_DIR, "framework-config.json")
 SCHEMA_PATH = os.path.join(REPO_ROOT, "contracts", "schemas", "framework-config.schema.json")
-INVALID_FIXTURE = os.path.join(REPO_ROOT, "tests", "fixtures", "invalid-framework-config.json")
+INVALID_FIXTURE = os.path.join(REPO_ROOT, "tests", "fixtures", "framework-config.invalid.json")
 
 if TOOLS_DIR not in sys.path:
     sys.path.insert(0, TOOLS_DIR)
