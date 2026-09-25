@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zero-ops-sre-recipe.contracts/schemas/query-catalogue.schema.json",
+  "title": "Query catalogue",
+  "description": "A reviewed, integrity-verified set of diagnostic queries. The catalogue is the mechanism by which arbitrary query construction is unnecessary: the tool policy denies constructing a query, and a catalogued query is the only thing that can be run (NEG-C). The framework ships defaults so that a consumer reaches a first result without authoring anything (CON-11), and every entry declares whether it is a default or a consumer extension, because the two must stay separable or the sanitization gate fails the moment a consumer customises.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "name", "entries"],
+  "properties": {
+    "schemaVersion": { "$ref": "#/$defs/schemaVersion" },
+    "name": { "$ref": "#/$defs/identifier" },
+
+    "entries": {
+      "type": "array",
+      "uniqueItems": true,
+      "description": "Required, and required even when empty. An empty catalogue permits no query, which is the correct reading of 'nothing has been reviewed yet'.",
+      "items": { "$ref": "#/$defs/catalogueEntry" }
+    },
+
+    "description": { "type": "string", "maxLength": 500 }
+  },
+
+  "$defs": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "The version of this schema the instance conforms to (FR-05, FR-29)."
+    },
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{1,62}[a-z0-9]$",
+      "description": "Lowercase, hyphen-separated. Constrained so an identifier cannot carry arbitrary text, and English by construction (FR-03, CON-01)."
+    },
+    "sha256Hex": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Lowercase hex, exactly 64 characters, as ADR-0004 pins."
+    },
+    "capabilityClass": {
+      "type": "string",
+      "enum": [
+        "readResourceMetadata",
+        "readResourceConfiguration",
+        "readMetrics",
+        "readLogs",
+        "readAlerts",
+        "readCostData",
+        "runCataloguedQuery"
+      ],
+      "description": "The same closed set the tool policy and the agent definition use. An entry whose class is not permitted by the policy cannot run, so the catalogue cannot widen what the policy allows."
+    },
+    "catalogueEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "origin", "capabilityClass", "queryText", "queryHash", "reviewedAt"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "origin": {
+          "type": "string",
+          "enum": ["frameworkDefault", "consumerExtension"],
+          "description": "Which half this entry belongs to. Declared per entry rather than inferred from file location, so that separability survives a consumer who merges both into one catalogue. Without it, a customised catalogue becomes indistinguishable from a tampered default."
+        },
+        "capabilityClass": { "$ref": "#/$defs/capabilityClass" },
+        "queryText": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 8000,
+          "description": "The reviewed query. Bounded above: an unbounded query is somewhere a workload payload could be parked, and a query too long to review is not reviewed."
+        },
+        "queryHash": {
+          "$ref": "#/$defs/sha256Hex",
+          "description": "SHA-256 over the NFC-normalised query text. Recomputing it is how a catalogue edited after review is detected, which is what 'integrity-verified' has to mean to be worth stating (FR-50)."
+        },
+        "reviewedAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?Z$",
+          "description": "When this entry was last reviewed. Required, so an unreviewed query cannot be added silently."
+        },
+        "purpose": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "What this query is for, in the reviewer's words."
+        }
+      }
+    }
+  }
+}

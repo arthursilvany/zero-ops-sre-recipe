@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zero-ops-sre-recipe.contracts/schemas/handoff-record.schema.json",
+  "title": "Handoff record",
+  "description": "The identity and continuation state of one execution as it is handed between turns. The idempotency key is what makes a retried handoff distinguishable from a new one, which matters because a retry that reads as new would double-count evidence and could exceed a limit that each half individually respected.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "executionId",
+    "idempotencyKey",
+    "turn",
+    "maxTurns",
+    "autonomyLevel"
+  ],
+  "properties": {
+    "schemaVersion": { "$ref": "#/$defs/schemaVersion" },
+
+    "executionId": {
+      "$ref": "#/$defs/opaqueId",
+      "description": "Which execution this record belongs to. The same value the evidence manifest carries, so a handoff and its evidence can be joined."
+    },
+
+    "idempotencyKey": {
+      "$ref": "#/$defs/opaqueId",
+      "description": "Stable across retries of the same logical handoff and different for a genuinely new one. A key that changed on retry would make every retry look like new work."
+    },
+
+    "turn": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Which turn this is, starting at 1."
+    },
+
+    "maxTurns": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "The ceiling for this execution. That turn does not exceed maxTurns is a semantic check; JSON Schema cannot compare two sibling values (FR-28)."
+    },
+
+    "autonomyLevel": {
+      "type": "string",
+      "enum": ["readOnly"],
+      "const": "readOnly",
+      "description": "Pinned in v1, and pinned rather than defaulted. A default would be a value that applies when nothing is said, and this contract has no representation for a handoff that says nothing about its own autonomy."
+    },
+
+    "scopeContractHash": {
+      "$ref": "#/$defs/sha256Hex",
+      "description": "The scope in force for this handoff. Present so a continuation cannot silently inherit a scope that changed between turns."
+    },
+
+    "startedAt": { "$ref": "#/$defs/timestamp" },
+
+    "executionState": {
+      "type": "string",
+      "enum": ["running", "completed", "incomplete", "failed", "deniedAccess"],
+      "description": "The canonical English execution states. Incomplete is distinct from failed: a run that hit a limit produced partial evidence that remains valid, while a failed one did not. Denied access is first class rather than a kind of failure, because being refused is a finding about the environment (FR-03, FR-07)."
+    },
+
+    "description": { "type": "string", "maxLength": 500 }
+  },
+
+  "$defs": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "The version of this schema the instance conforms to (FR-05, FR-29)."
+    },
+    "opaqueId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120,
+      "pattern": "^(<[A-Z0-9_]{3,60}>|[A-Za-z0-9][A-Za-z0-9._-]{0,119})$",
+      "description": "An opaque handle, or a placeholder in the angle-bracket form that every shipped example uses. The pattern admits no path separator, no scheme and no whitespace, so a resource identifier or a URL cannot be smuggled in as an identifier."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?Z$",
+      "description": "RFC 3339, UTC, Z-suffixed. The pattern is present because format is an annotation by default."
+    },
+    "sha256Hex": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Lowercase hex, exactly 64 characters, as ADR-0004 pins."
+    }
+  }
+}

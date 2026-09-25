@@ -1,0 +1,144 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zero-ops-sre-recipe.contracts/schemas/change-set.schema.json",
+  "title": "Change set",
+  "description": "A proposed mutation, defined as a contract with no execution path in v1 (FR-06, CON-02). The schema exists so that a future mutation has a reviewed shape to fill; nothing in this framework consumes it. Non-existence of an execution path is asserted statically over declared core paths, because exercising behaviour cannot prove absence (SEC-012, NEG-H). This artifact is deliberately distinct from any diagnostic output, which is what FR-57 means by separating read-only findings from proposed mutations.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "name",
+    "scopeContractHash",
+    "lifecycleState",
+    "preconditions",
+    "blastRadius",
+    "rollbackPlan",
+    "verificationMethod",
+    "proposedAt",
+    "canonicalHash"
+  ],
+  "properties": {
+    "schemaVersion": { "$ref": "#/$defs/schemaVersion" },
+
+    "name": { "$ref": "#/$defs/identifier" },
+
+    "scopeContractHash": {
+      "$ref": "#/$defs/sha256Hex",
+      "description": "The canonical hash of the scope contract this proposal was produced under. Binding to the hash rather than the name is what makes a proposal written against a since-changed scope detectable instead of silently re-interpreted."
+    },
+
+    "lifecycleState": {
+      "type": "string",
+      "enum": ["proposed", "approved", "rejected", "withdrawn"],
+      "description": "No executed state exists. That absence is the contract-level expression of 'no execution path in v1': a change set cannot even represent having been applied, so no artifact can claim it was. Adding such a state is a deliberate schema change that a reviewer will see, not a configuration choice (FR-06, FR-58)."
+    },
+
+    "preconditions": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "description": "What must hold before this could be applied. Non-empty: a proposal asserting no preconditions is asserting it is safe under every condition, which is a claim nobody can review.",
+      "items": { "$ref": "#/$defs/statement" }
+    },
+
+    "blastRadius": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["affectedScopeEntries", "reversible", "summary"],
+      "description": "What this would touch and whether it can be undone. Required in full, because a proposal whose blast radius is unstated is one whose risk was never assessed.",
+      "properties": {
+        "affectedScopeEntries": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "description": "Selectors naming what would be affected, drawn from the scope contract. Placeholders only in any shipped example.",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          }
+        },
+        "reversible": {
+          "type": "boolean",
+          "description": "Stated explicitly. An irreversible proposal is permitted to exist and must announce itself, so that the approval decision is taken knowing which kind it is."
+        },
+        "summary": { "type": "string", "minLength": 1, "maxLength": 1000 }
+      }
+    },
+
+    "rollbackPlan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["steps", "maximumRollbackSeconds"],
+      "description": "Required even when the proposal is reversible, because 'reversible in principle' and 'reversible by a named sequence within a known time' are different claims.",
+      "properties": {
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/statement" }
+        },
+        "maximumRollbackSeconds": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "The upper bound on returning to the prior state. Bounded so that the rollback plan carries a commitment rather than an intention."
+        }
+      }
+    },
+
+    "verificationMethod": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["steps", "successCriterion"],
+      "description": "How anyone would know the change did what it claimed. Without a success criterion, verification degrades to 'it did not obviously fail'.",
+      "properties": {
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/statement" }
+        },
+        "successCriterion": { "type": "string", "minLength": 1, "maxLength": 1000 }
+      }
+    },
+
+    "proposedAt": { "$ref": "#/$defs/timestamp" },
+
+    "canonicalHash": {
+      "$ref": "#/$defs/sha256Hex",
+      "description": "SHA-256 over the RFC 8785 canonical form of this document with this property removed, lowercase hex (ADR-0004). The approval ledger references this value, so approving a proposal and then editing it produces a hash that no longer matches the approval."
+    },
+
+    "description": { "type": "string", "maxLength": 1000 }
+  },
+
+  "$defs": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "The version of this schema the instance conforms to (FR-05, FR-29)."
+    },
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{1,62}[a-z0-9]$",
+      "description": "Lowercase, hyphen-separated. Constrained so an identifier cannot carry arbitrary text, and English by construction (FR-03, CON-01)."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?Z$",
+      "description": "RFC 3339, UTC, Z-suffixed. The pattern is present because format is an annotation by default."
+    },
+    "sha256Hex": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Lowercase hex, exactly 64 characters, as ADR-0004 pins."
+    },
+    "statement": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500,
+      "description": "One reviewable sentence. Bounded above so a step cannot become an essay that nobody reads."
+    }
+  }
+}

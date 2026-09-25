@@ -141,10 +141,13 @@ class CrossCuttingRulesHold(unittest.TestCase):
                         "object at %s does not set additionalProperties: false" % pointer,
                     )
 
-    def test_every_governance_schema_requires_an_explicit_version(self):
-        for name in GOVERNANCE:
-            schema = read_json(os.path.join(SCHEMA_DIR, "%s.schema.json" % name))
-            with self.subTest(schema=name):
+    def test_every_schema_requires_an_explicit_version(self):
+        # The cross-cutting rule says "every schema without exception", so the
+        # check walks the directory. Scoping it to a named list would quietly
+        # exempt the next schema somebody adds.
+        for path in schema_files():
+            schema = read_json(path)
+            with self.subTest(schema=os.path.basename(path)):
                 self.assertIn("schemaVersion", schema.get("properties", {}))
                 self.assertIn("schemaVersion", schema.get("required", []))
 

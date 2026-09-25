@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zero-ops-sre-recipe.contracts/schemas/capability-mapping.schema.json",
+  "title": "Capability mapping",
+  "description": "Maps capability classes to the tool identifiers of one pinned runtime version. This schema describes the shape of that mapping and deliberately contains no runtime identifier of its own: it lives in a core path, and FR-04 confines runtime-specific names to the binding layer. A populated instance therefore belongs under core/binding/, never beside this file. The indirection is what contains the open item on unconfirmed runtime capability identifiers.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "runtimeName",
+    "runtimeVersion",
+    "verificationState",
+    "entries"
+  ],
+  "properties": {
+    "schemaVersion": { "$ref": "#/$defs/schemaVersion" },
+
+    "runtimeName": {
+      "$ref": "#/$defs/identifier",
+      "description": "Which runtime this mapping is for. A value, supplied by the binding layer, never a constant in this contract."
+    },
+
+    "runtimeVersion": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]{0,99}$",
+      "description": "The exact pinned version the mapping was produced against. A mapping without a version is untestable: the identifiers a runtime advertises can change between versions, so a mapping that does not say which version it describes cannot be reconciled against anything."
+    },
+
+    "verificationState": {
+      "type": "string",
+      "enum": ["unverified", "reconciled"],
+      "description": "Starts unverified and stays there until the reconciliation gate runs against the named runtime version. The source declares its capability identifiers unconfirmed, so a mapping asserted as correct without that gate would be a claim the framework cannot support. Unverified is the honest default rather than an error state."
+    },
+
+    "reconciledAt": {
+      "$ref": "#/$defs/timestamp",
+      "description": "When the reconciliation gate last ran. Absent while the state is unverified."
+    },
+
+    "entries": {
+      "type": "array",
+      "uniqueItems": true,
+      "description": "Required, and required even when empty. An empty mapping maps nothing and says so. A capability the runtime advertises and this mapping does not classify fails the build rather than defaulting to allowed (NEG-C).",
+      "items": { "$ref": "#/$defs/mappingEntry" }
+    },
+
+    "description": { "type": "string", "maxLength": 500 }
+  },
+
+  "allOf": [
+    {
+      "if": {
+        "properties": { "verificationState": { "const": "unverified" } },
+        "required": ["verificationState"]
+      },
+      "then": {
+        "not": { "required": ["reconciledAt"] },
+        "description": "An unverified mapping cannot carry a reconciliation timestamp. Otherwise a stale timestamp would read as evidence of a gate that never ran."
+      },
+      "else": {
+        "required": ["reconciledAt"],
+        "description": "A reconciled mapping must say when, so staleness is visible rather than assumed."
+      }
+    }
+  ],
+
+  "$defs": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "The version of this schema the instance conforms to (FR-05, FR-29)."
+    },
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{1,62}[a-z0-9]$",
+      "description": "Lowercase, hyphen-separated. Constrained so an identifier cannot carry arbitrary text, and English by construction (FR-03, CON-01)."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?Z$",
+      "description": "RFC 3339, UTC, Z-suffixed. The pattern is present because format is an annotation by default."
+    },
+    "capabilityClass": {
+      "type": "string",
+      "enum": [
+        "readResourceMetadata",
+        "readResourceConfiguration",
+        "readMetrics",
+        "readLogs",
+        "readAlerts",
+        "readCostData",
+        "runCataloguedQuery"
+      ],
+      "description": "The same closed set the tool policy and the agent definition use."
+    },
+    "mappingEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["capabilityClass", "runtimeToolNames"],
+      "properties": {
+        "capabilityClass": { "$ref": "#/$defs/capabilityClass" },
+        "runtimeToolNames": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "description": "The runtime's own names for the tools that realise this class. Values only: this contract states that such names exist and constrains their shape, and never enumerates one.",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$"
+          }
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Why this class maps as it does, for the reviewer who has to check it against the runtime."
+        }
+      }
+    }
+  }
+}
