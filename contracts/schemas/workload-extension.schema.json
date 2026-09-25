@@ -1,0 +1,206 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zero-ops-sre-recipe.contracts/schemas/workload-extension.schema.json",
+  "title": "Workload extension",
+  "description": "Everything a consumer supplies to observe a workload the framework ships no content for. The whole artifact lives in a consumer-owned path, so onboarding a second workload produces no diff inside the declared core (FR-63, US-8). The extension supplies inputs and never behaviour: it carries no script, no command and no free-form payload, because an extension point that accepted code would put consumer content on the execution path and make the read-only boundary a matter of what was written rather than what is possible.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "name", "targetResources"],
+  "properties": {
+    "schemaVersion": { "$ref": "#/$defs/schemaVersion" },
+
+    "name": {
+      "$ref": "#/$defs/identifier",
+      "description": "Names the workload this extends. Distinct from any framework identifier, so a consumer name can never collide with a shipped one."
+    },
+
+    "targetResources": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "description": "What this extension applies to. Non-empty: an extension targeting nothing is configuration that appears active and does nothing.",
+      "items": { "$ref": "#/$defs/scopeEntry" }
+    },
+
+    "queries": {
+      "type": "array",
+      "uniqueItems": true,
+      "description": "Consumer-supplied catalogue entries. Every one is pinned to the consumerExtension origin, so an extension structurally cannot contribute an entry that claims to be a framework default. That is what keeps default and extension separable once a consumer customises.",
+      "items": { "$ref": "#/$defs/consumerQuery" }
+    },
+
+    "alertDefinitions": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/alertDefinition" }
+    },
+
+    "connectorRefs": {
+      "type": "array",
+      "uniqueItems": true,
+      "description": "Names connector configurations this workload needs. Names only: an endpoint or a credential is never restated here (SEC-013).",
+      "items": { "$ref": "#/$defs/identifier" }
+    },
+
+    "executionLimitOverrides": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "description": "Optional, and an empty object is rejected: a declared override that overrides nothing reads as intent that was never expressed. These narrow the limits and cannot widen them past the tool policy, which is a semantic check.",
+      "properties": {
+        "maxToolCalls": { "type": "integer", "minimum": 1 },
+        "maxWallClockSeconds": { "type": "integer", "minimum": 1 },
+        "maxResultSetRows": { "type": "integer", "minimum": 1 },
+        "perQueryTimeoutSeconds": { "type": "integer", "minimum": 1 }
+      }
+    },
+
+    "networkAccessMode": {
+      "type": "string",
+      "enum": ["publicEndpoint", "privateEndpoint"],
+      "description": "Declared rather than inferred, so a workload reaching a public endpoint is visible in review instead of discovered at run time."
+    },
+
+    "schedule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cadence"],
+      "description": "When observation runs. A closed cadence rather than a free-form expression: an arbitrary schedule string is an unreviewable input, and agent-created schedules are one of the seven categories the tool policy denies outright (FR-52).",
+      "properties": {
+        "cadence": {
+          "type": "string",
+          "enum": ["manual", "hourly", "daily", "weekly"]
+        },
+        "timeZone": {
+          "type": "string",
+          "maxLength": 60,
+          "pattern": "^[A-Za-z][A-Za-z0-9_+/-]{0,59}$",
+          "description": "An IANA zone name. That it resolves is a semantic check."
+        }
+      }
+    },
+
+    "reportShaping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sections"],
+      "description": "Which sections appear in the output, chosen from a closed set. Shaping selects from what the framework produces and never supplies content, so a report cannot become a channel for consumer text that was never reviewed.",
+      "properties": {
+        "sections": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "summary",
+              "findings",
+              "evidence",
+              "readiness",
+              "limitations"
+            ]
+          }
+        }
+      }
+    },
+
+    "description": { "type": "string", "maxLength": 1000 }
+  },
+
+  "$defs": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "The version of this schema the instance conforms to (FR-05, FR-29)."
+    },
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{1,62}[a-z0-9]$",
+      "description": "Lowercase, hyphen-separated. Constrained so an identifier cannot carry arbitrary text, and English by construction (FR-03, CON-01)."
+    },
+    "sha256Hex": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Lowercase hex, exactly 64 characters, as ADR-0004 pins."
+    },
+    "capabilityClass": {
+      "type": "string",
+      "enum": [
+        "readResourceMetadata",
+        "readResourceConfiguration",
+        "readMetrics",
+        "readLogs",
+        "readAlerts",
+        "readCostData",
+        "runCataloguedQuery"
+      ],
+      "description": "The same closed set the tool policy uses. An extension cannot name a class the policy does not know, so it cannot widen what the agent may do."
+    },
+    "scopeEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "selector"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["resourceGroup", "tag", "resource"],
+          "description": "Selection mechanism, deliberately not a workload type. The core ships no workload-type content of its own (FR-63, CC-022)."
+        },
+        "selector": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300,
+          "description": "A placeholder in every shipped example."
+        }
+      }
+    },
+    "consumerQuery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "origin", "capabilityClass", "queryText", "queryHash"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "origin": {
+          "type": "string",
+          "enum": ["consumerExtension"],
+          "const": "consumerExtension",
+          "description": "Pinned. A single-member enumeration is what prevents an extension from supplying an entry labelled as a framework default, which would make a customised catalogue indistinguishable from a tampered one."
+        },
+        "capabilityClass": { "$ref": "#/$defs/capabilityClass" },
+        "queryText": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 8000,
+          "description": "The consumer's reviewed query. Bounded above: a query too long to review is not reviewed."
+        },
+        "queryHash": {
+          "$ref": "#/$defs/sha256Hex",
+          "description": "SHA-256 over the NFC-normalised query text, so an entry edited after review is detectable."
+        },
+        "purpose": { "type": "string", "maxLength": 500 }
+      }
+    },
+    "alertDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "severity", "condition"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "severity": {
+          "type": "string",
+          "enum": ["informational", "low", "medium", "high"]
+        },
+        "condition": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000,
+          "description": "The condition in the consumer's terms. Evaluated by the platform the alert is defined in, never by this framework, which observes and does not act."
+        },
+        "queryRef": {
+          "$ref": "#/$defs/identifier",
+          "description": "The catalogue entry this alert reads from. That it resolves is a semantic check."
+        }
+      }
+    }
+  }
+}

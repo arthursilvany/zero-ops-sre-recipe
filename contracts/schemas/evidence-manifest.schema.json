@@ -1,0 +1,188 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zero-ops-sre-recipe.contracts/schemas/evidence-manifest.schema.json",
+  "title": "Evidence manifest",
+  "description": "The index of what an execution observed, bound to an execution identifier and to the scope-contract hash in force. No property in this schema can hold retrieved content: an entry records the hash of what was seen, never the thing itself. That is what makes the injection and leakage mitigations structural rather than scan-based, and it is what NEG-F asserts. A manifest that could carry a log line would be a manifest that could carry an injected instruction, a credential, or a customer identifier.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "executionId",
+    "scopeContractHash",
+    "startedAt",
+    "entries",
+    "conclusions"
+  ],
+  "properties": {
+    "schemaVersion": { "$ref": "#/$defs/schemaVersion" },
+
+    "executionId": {
+      "$ref": "#/$defs/opaqueId",
+      "description": "Which execution produced this manifest. Opaque by construction, so it cannot double as a place to record a resource name."
+    },
+
+    "scopeContractHash": {
+      "$ref": "#/$defs/sha256Hex",
+      "description": "The scope contract in force when the execution ran. Binding to the hash rather than the name makes evidence gathered under a since-changed scope detectable rather than silently attributed to the current one."
+    },
+
+    "startedAt": { "$ref": "#/$defs/timestamp" },
+    "completedAt": {
+      "$ref": "#/$defs/timestamp",
+      "description": "Absent while an execution is incomplete. Its absence is the honest representation of an execution that did not finish; a substituted end time would make an incomplete run look complete (FR-07)."
+    },
+
+    "entries": {
+      "type": "array",
+      "uniqueItems": true,
+      "description": "Required, and required even when empty. An execution that observed nothing produces an empty index, which is a finding. An absent list would be indistinguishable from a manifest that was never populated.",
+      "items": { "$ref": "#/$defs/evidenceEntry" }
+    },
+
+    "conclusions": {
+      "type": "array",
+      "uniqueItems": true,
+      "description": "Required, and required even when empty. Every member either resolves to evidence or declares that it does not, which is checked as a per-execution invariant rather than by sampling (FR-47, SC-08).",
+      "items": { "$ref": "#/$defs/conclusion" }
+    },
+
+    "description": { "type": "string", "maxLength": 500 }
+  },
+
+  "$defs": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "The version of this schema the instance conforms to (FR-05, FR-29)."
+    },
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{1,62}[a-z0-9]$",
+      "description": "Lowercase, hyphen-separated. Constrained so an identifier cannot carry arbitrary text, and English by construction (FR-03, CON-01)."
+    },
+    "opaqueId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120,
+      "pattern": "^(<[A-Z0-9_]{3,60}>|[A-Za-z0-9][A-Za-z0-9._-]{0,119})$",
+      "description": "An opaque handle, or a placeholder in the angle-bracket form that every shipped example uses. The pattern admits no path separator, no scheme and no whitespace, so a resource identifier or a URL cannot be smuggled in as an identifier."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?Z$",
+      "description": "RFC 3339, UTC, Z-suffixed. The pattern is present because format is an annotation by default."
+    },
+    "sha256Hex": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Lowercase hex, exactly 64 characters, as ADR-0004 pins."
+    },
+    "evidenceEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "observationState",
+        "provenanceClassification",
+        "collectedAt",
+        "freshnessSeconds",
+        "dataClassification"
+      ],
+      "description": "One observation, or one explicit failure to observe. The five attributes the data model requires are all present for an observed entry. An unobserved entry carries no content hash at all rather than a zero or an empty digest, because substituting a default is precisely what the model forbids: a zero hash would be a value that compares, sorts and validates like a real one.",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/identifier",
+          "description": "Referenced by conclusions. Local to this manifest."
+        },
+        "observationState": {
+          "type": "string",
+          "enum": ["observed", "unobserved"],
+          "description": "Explicit. A source that could not be reached produces an unobserved entry rather than no entry, so the gap appears in the evidence chain instead of vanishing from it."
+        },
+        "provenanceClassification": {
+          "type": "string",
+          "enum": [
+            "directObservation",
+            "platformTelemetry",
+            "operatorSupplied",
+            "derivedFromObservation"
+          ],
+          "description": "Where this came from. English identifiers; the original reference values are recorded as provenance metadata in the vocabulary rather than used as identifiers here (FR-03)."
+        },
+        "collectedAt": { "$ref": "#/$defs/timestamp" },
+        "freshnessSeconds": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "How old the underlying observation was when collected. Declared rather than inferred from collectedAt, because the two differ whenever a platform serves cached or aggregated telemetry, and treating them as equal would overstate how current the evidence is."
+        },
+        "dataClassification": {
+          "type": "string",
+          "enum": ["public", "internal", "confidential", "restricted"],
+          "description": "The sensitivity of what was observed. Recorded on the index even though the content is not retained, because how the evidence may be handled and shared does not depend on whether this file holds it."
+        },
+        "contentHash": {
+          "$ref": "#/$defs/sha256Hex",
+          "description": "The hash of what was observed. The hash and never the content. Required for an observed entry and forbidden for an unobserved one."
+        },
+        "sourceRef": {
+          "$ref": "#/$defs/identifier",
+          "description": "Names the connector the observation came through. A name, not an endpoint."
+        },
+        "unobservedReason": {
+          "type": "string",
+          "enum": [
+            "accessDenied",
+            "sourceUnreachable",
+            "timedOut",
+            "limitExceeded",
+            "notApplicable"
+          ],
+          "description": "Why the source was not observed. A closed enumeration, so an unobserved entry cannot explain itself in free text that nothing can aggregate. Access denied is a first-class value rather than a kind of error, because being refused is a finding about the environment (FR-03)."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "observationState": { "const": "observed" } },
+            "required": ["observationState"]
+          },
+          "then": {
+            "required": ["contentHash"],
+            "not": { "required": ["unobservedReason"] }
+          },
+          "else": {
+            "required": ["unobservedReason"],
+            "not": { "required": ["contentHash"] }
+          }
+        }
+      ]
+    },
+    "conclusion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "statement"],
+      "description": "A conclusion either resolves to evidence or says what kind of unevidenced claim it is. Expressed as an exclusive choice so that a conclusion carrying both would be rejected: citing evidence while also declaring itself inferred is two different claims about its own standing.",
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "statement": { "type": "string", "minLength": 1, "maxLength": 1000 },
+        "evidenceRefs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "description": "Entry identifiers within this manifest. That each resolves is a semantic check.",
+          "items": { "$ref": "#/$defs/identifier" }
+        },
+        "classification": {
+          "type": "string",
+          "enum": ["derived", "inferred", "recommended"],
+          "description": "The explicit standing of a conclusion that does not resolve to evidence. Required in that case, so an unsupported claim has to declare itself rather than sit beside supported ones looking identical."
+        }
+      },
+      "oneOf": [
+        { "required": ["evidenceRefs"], "not": { "required": ["classification"] } },
+        { "required": ["classification"], "not": { "required": ["evidenceRefs"] } }
+      ]
+    }
+  }
+}

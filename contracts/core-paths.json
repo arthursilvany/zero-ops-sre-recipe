@@ -52,9 +52,8 @@
       },
       {
         "path": "contracts/schema-register.md",
-        "status": "planned",
-        "purpose": "The register every schema must resolve against exactly once (FR-05).",
-        "materialisedBy": "T1.08"
+        "status": "present",
+        "purpose": "The register every schema must resolve against exactly once (FR-05)."
       },
       {
         "path": "core/policy/",

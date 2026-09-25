@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zero-ops-sre-recipe.contracts/schemas/assessment-result.schema.json",
+  "title": "Assessment result",
+  "description": "A structured diagnostic output. It is a read-only finding and is deliberately a different artifact from a change set, which is what FR-57 means by separating diagnosis from proposed mutation: the two cannot be confused because they do not share a schema. Every finding either cites evidence or declares that it does not. Status and confidence use English identifiers; the original reference values are recorded as provenance in the vocabulary rather than used as identifiers here (FR-03).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "executionId",
+    "scopeContractHash",
+    "status",
+    "confidence",
+    "findings",
+    "producedAt"
+  ],
+  "properties": {
+    "schemaVersion": { "$ref": "#/$defs/schemaVersion" },
+    "executionId": { "$ref": "#/$defs/opaqueId" },
+
+    "scopeContractHash": {
+      "$ref": "#/$defs/sha256Hex",
+      "description": "The scope this assessment was produced under. A result read without knowing its scope is a result about an unknown subject."
+    },
+
+    "evidenceManifestHash": {
+      "$ref": "#/$defs/sha256Hex",
+      "description": "The canonical hash of the manifest backing this result. Binding to the hash is what stops a result from being paired with a manifest that changed after the fact."
+    },
+
+    "status": { "$ref": "#/$defs/assessmentStatus" },
+    "confidence": { "$ref": "#/$defs/confidence" },
+
+    "findings": {
+      "type": "array",
+      "uniqueItems": true,
+      "description": "Required, and required even when empty. An assessment that found nothing says so explicitly; an absent list would be indistinguishable from an assessment that was never completed.",
+      "items": { "$ref": "#/$defs/finding" }
+    },
+
+    "producedAt": { "$ref": "#/$defs/timestamp" },
+    "description": { "type": "string", "maxLength": 1000 }
+  },
+
+  "$defs": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "The version of this schema the instance conforms to (FR-05, FR-29)."
+    },
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{1,62}[a-z0-9]$",
+      "description": "Lowercase, hyphen-separated. Constrained so an identifier cannot carry arbitrary text, and English by construction (FR-03, CON-01)."
+    },
+    "opaqueId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120,
+      "pattern": "^(<[A-Z0-9_]{3,60}>|[A-Za-z0-9][A-Za-z0-9._-]{0,119})$",
+      "description": "An opaque handle, or a placeholder in the angle-bracket form that every shipped example uses."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?Z$",
+      "description": "RFC 3339, UTC, Z-suffixed. The pattern is present because format is an annotation by default."
+    },
+    "sha256Hex": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Lowercase hex, exactly 64 characters, as ADR-0004 pins."
+    },
+    "assessmentStatus": {
+      "type": "string",
+      "enum": ["healthy", "degraded", "atRisk", "indeterminate"],
+      "description": "Indeterminate is a real outcome rather than a missing one. An assessment that could not reach its sources must be able to say so without borrowing healthy, which would report an absence of evidence as evidence of absence."
+    },
+    "confidence": {
+      "type": "string",
+      "enum": ["high", "medium", "low", "indeterminate"],
+      "description": "How much weight the status carries. Separate from status on purpose: a degraded finding held with low confidence and one held with high confidence call for different responses, and collapsing them loses exactly that distinction."
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "statement", "severity"],
+      "description": "A finding either resolves to evidence or declares its standing, mirroring the conclusion rule in the evidence manifest. Expressed as an exclusive choice so a finding cannot both cite evidence and call itself inferred.",
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "statement": { "type": "string", "minLength": 1, "maxLength": 1000 },
+        "severity": {
+          "type": "string",
+          "enum": ["informational", "low", "medium", "high"],
+          "description": "Severity of the finding, not of the recommended action. The framework proposes no action, so a severity that implied urgency of remediation would be describing something outside this artifact."
+        },
+        "evidenceRefs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "description": "Entry identifiers in the backing evidence manifest. That each resolves is a semantic check.",
+          "items": { "$ref": "#/$defs/identifier" }
+        },
+        "classification": {
+          "type": "string",
+          "enum": ["derived", "inferred", "recommended"],
+          "description": "The explicit standing of a finding that does not resolve to evidence."
+        }
+      },
+      "oneOf": [
+        { "required": ["evidenceRefs"], "not": { "required": ["classification"] } },
+        { "required": ["classification"], "not": { "required": ["evidenceRefs"] } }
+      ]
+    }
+  }
+}

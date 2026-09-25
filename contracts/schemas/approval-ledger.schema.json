@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zero-ops-sre-recipe.contracts/schemas/approval-ledger.schema.json",
+  "title": "Approval ledger",
+  "description": "An append-only record of approval decisions. Enforced by denial in v1: the ledger exists and nothing executes against it (FR-06, FR-58). The decider is recorded as a principal object identifier, never a display name or a configured label, so self-approval cannot be defeated by renaming (SEC-016). The agent's own principal is recorded on the ledger itself, which is what lets the self-approval check run offline against a single document instead of needing to correlate two.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "name", "agentPrincipalObjectId", "entries"],
+  "properties": {
+    "schemaVersion": { "$ref": "#/$defs/schemaVersion" },
+
+    "name": { "$ref": "#/$defs/identifier" },
+
+    "agentPrincipalObjectId": {
+      "$ref": "#/$defs/principalObjectId",
+      "description": "The managed identity the agent runs as. Present so that a decider equal to this value is detectable within this document alone. A ledger that did not record it would push the self-approval check into a correlation step that could be skipped."
+    },
+
+    "entries": {
+      "type": "array",
+      "uniqueItems": true,
+      "description": "Required, and required even when empty. An empty ledger records that nothing has been approved, which is a fact. An absent list would be indistinguishable from a ledger that was never written.",
+      "items": { "$ref": "#/$defs/approvalEntry" }
+    },
+
+    "description": { "type": "string", "maxLength": 500 }
+  },
+
+  "$defs": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "The version of this schema the instance conforms to (FR-05, FR-29)."
+    },
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{1,62}[a-z0-9]$",
+      "description": "Lowercase, hyphen-separated. Constrained so an identifier cannot carry arbitrary text, and English by construction (FR-03, CON-01)."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?Z$",
+      "description": "RFC 3339, UTC, Z-suffixed. The pattern is present because format is an annotation by default."
+    },
+    "sha256Hex": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Lowercase hex, exactly 64 characters, as ADR-0004 pins."
+    },
+    "principalObjectId": {
+      "type": "string",
+      "pattern": "^(<[A-Z0-9_]{3,60}>|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$",
+      "description": "A directory object identifier, or a placeholder in the angle-bracket form that every shipped example uses. Admitting the placeholder form in the schema is what lets an example be both valid and free of a real identifier; without it, a valid example would have to contain one."
+    },
+    "approvalEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sequence",
+        "approvedArtifactHash",
+        "decision",
+        "deciderPrincipalObjectId",
+        "decidedAt"
+      ],
+      "properties": {
+        "sequence": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Position in the append-only sequence, starting at 1. That it increases by exactly one with no gaps is a semantic check; JSON Schema cannot compare array members."
+        },
+        "previousEntryHash": {
+          "$ref": "#/$defs/sha256Hex",
+          "description": "The canonical hash of the preceding entry, forming a chain. Absent only on the first entry, which has nothing to follow. The chain is what makes a removed or reordered entry detectable: append-only is a property that has to be checkable, not merely promised."
+        },
+        "approvedArtifactHash": {
+          "$ref": "#/$defs/sha256Hex",
+          "description": "The canonical hash of the artifact this decision applies to, not its name. Approving a proposal and then editing it yields a hash that no longer matches, so the approval does not silently carry over to the edited version."
+        },
+        "decision": {
+          "type": "string",
+          "enum": ["approved", "rejected"],
+          "description": "A recorded decision is one or the other. There is no pending value, because a pending decision is the absence of an entry rather than an entry."
+        },
+        "deciderPrincipalObjectId": {
+          "$ref": "#/$defs/principalObjectId",
+          "description": "Who decided, as a principal object identifier. Never a display name: a display name can be changed to match, which would defeat the self-approval prohibition by renaming (SEC-016). That this value differs from agentPrincipalObjectId is a semantic check."
+        },
+        "decidedAt": { "$ref": "#/$defs/timestamp" },
+        "justification": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "Why. Optional for an approval and worth requiring by convention for a rejection, so the reason survives past the people who were present."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "sequence": { "const": 1 } },
+            "required": ["sequence"]
+          },
+          "then": {
+            "not": { "required": ["previousEntryHash"] }
+          },
+          "else": {
+            "required": ["previousEntryHash"]
+          }
+        }
+      ]
+    }
+  }
+}

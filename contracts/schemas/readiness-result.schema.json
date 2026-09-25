@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zero-ops-sre-recipe.contracts/schemas/readiness-result.schema.json",
+  "title": "Readiness result",
+  "description": "Whether a workload is ready to be observed by an agent, and on what evidence. Separate from the assessment result because the questions differ: readiness is about whether the framework can observe at all, and assessment is about what was observed. Merging them would let a readiness failure be reported as a health finding, which would blame the workload for the framework's inability to see it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "executionId",
+    "scopeContractHash",
+    "status",
+    "confidence",
+    "checks",
+    "producedAt"
+  ],
+  "properties": {
+    "schemaVersion": { "$ref": "#/$defs/schemaVersion" },
+    "executionId": { "$ref": "#/$defs/opaqueId" },
+
+    "scopeContractHash": {
+      "$ref": "#/$defs/sha256Hex",
+      "description": "The scope readiness was evaluated against."
+    },
+
+    "evidenceManifestHash": {
+      "$ref": "#/$defs/sha256Hex",
+      "description": "The canonical hash of the manifest backing this result."
+    },
+
+    "status": { "$ref": "#/$defs/readinessStatus" },
+    "confidence": { "$ref": "#/$defs/confidence" },
+
+    "checks": {
+      "type": "array",
+      "uniqueItems": true,
+      "description": "Required, and required even when empty. A readiness result with no checks performed is reporting that nothing was verified, which is the opposite of ready and must be readable as such.",
+      "items": { "$ref": "#/$defs/readinessCheck" }
+    },
+
+    "producedAt": { "$ref": "#/$defs/timestamp" },
+    "description": { "type": "string", "maxLength": 1000 }
+  },
+
+  "$defs": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "The version of this schema the instance conforms to (FR-05, FR-29)."
+    },
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{1,62}[a-z0-9]$",
+      "description": "Lowercase, hyphen-separated. Constrained so an identifier cannot carry arbitrary text, and English by construction (FR-03, CON-01)."
+    },
+    "opaqueId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120,
+      "pattern": "^(<[A-Z0-9_]{3,60}>|[A-Za-z0-9][A-Za-z0-9._-]{0,119})$",
+      "description": "An opaque handle, or a placeholder in the angle-bracket form that every shipped example uses."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?Z$",
+      "description": "RFC 3339, UTC, Z-suffixed. The pattern is present because format is an annotation by default."
+    },
+    "sha256Hex": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Lowercase hex, exactly 64 characters, as ADR-0004 pins."
+    },
+    "readinessStatus": {
+      "type": "string",
+      "enum": ["ready", "readyWithFindings", "notReady", "indeterminate"],
+      "description": "Ready with findings is distinct from ready. Collapsing the two would discard the only signal that something needs attention before it becomes a failure, and collapsing it into not-ready would block a workload that can in fact be observed."
+    },
+    "confidence": {
+      "type": "string",
+      "enum": ["high", "medium", "low", "indeterminate"],
+      "description": "How much weight the status carries."
+    },
+    "readinessCheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "outcome", "statement"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "outcome": {
+          "type": "string",
+          "enum": ["passed", "failed", "notApplicable", "notEvaluated"],
+          "description": "Not evaluated is distinct from passed and from not applicable. A check that never ran must not be counted towards readiness, which is exactly what happens when the only available values are pass and fail."
+        },
+        "statement": { "type": "string", "minLength": 1, "maxLength": 1000 },
+        "evidenceRefs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "description": "Entry identifiers in the backing evidence manifest.",
+          "items": { "$ref": "#/$defs/identifier" }
+        },
+        "remediationHint": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "What an operator would do about a failed check. A hint for a person, never an instruction for the agent: the framework proposes no action and executes none."
+        }
+      }
+    }
+  }
+}
