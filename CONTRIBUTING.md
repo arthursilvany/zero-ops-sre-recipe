@@ -114,6 +114,36 @@ installed. The `bin/` shims put `tools/` on `PYTHONPATH`, so the only third-part
 entering your workstation is the reviewed closure in
 [`tools/supply-chain.json`](tools/supply-chain.json).
 
+`validate` accepts a single artifact or a directory. A directory is treated as a
+configuration set, so every recognised artifact inside it is checked, not only the
+framework configuration. The artifact kind is taken from the filename before the first
+dot, which is why a set may hold `environment-binding.production.json` and
+`environment-binding.nonproduction.json` at once. Dispatching on the filename rather
+than on a field inside the document is deliberate: a document that named its own schema
+could claim a laxer one.
+
+Validation runs at three levels, in order, each gated behind the one before it:
+
+| Level | Reports | Exit code |
+|-------|---------|-----------|
+| Structural | Unknown properties, missing requirements, malformed values | 1 |
+| Semantic | Constraints relating two values, such as an inverted observation period | 1 |
+| Recommended-area warnings | Contract areas a production deployment will want | 0, or 1 under `--strict` |
+
+Warnings do not fail by default. Requiring a Recommended area would force bespoke
+authoring before a first result, which is the thing CON-11 rejects, so the gap is made
+visible rather than blocking. Add `--strict` in a production readiness gate to turn the
+same warnings into failures:
+
+```sh
+bin/zeroops validate examples/minimal/ --strict
+```
+
+No message at any level echoes the value it rejected. Error text ends up in issues, chat
+transcripts and CI logs, so a message quoting a secret-bearing or identifier-bearing
+value would disclose it through the diagnostic channel (SEC-017). Messages name the
+artifact, the JSON pointer and the expected shape.
+
 Python 3.11 or newer is required. That floor is not a preference: it is the strictest
 `requires_python` in the closure, and
 `python tools/supply_chain/generate_lock.py --verify` fails if it ever drops below one.
