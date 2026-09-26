@@ -600,6 +600,64 @@
       ],
       "origin": "frameworkOriginated",
       "note": "Introduced by this register to describe itself. The register governs every enumerated set in contracts/schemas/, and its own schema defines one, so excluding it would carve out the single exception that nobody would notice. There is deliberately no unknown member: a set whose provenance was never established is a gap, and admitting a value for it would let the gap pass as a recorded answer."
+    },
+    {
+      "name": "terminationReason",
+      "values": [
+        "discoveryProviderUnavailable",
+        "deploymentPartiallyApplied",
+        "roleAssignmentNotYetEffective",
+        "dataSourceUnreachable",
+        "concurrentScopeConflict",
+        "frameworkVersionIncompatible",
+        "executionLimitReached",
+        "accessNotGranted"
+      ],
+      "appliesTo": [
+        "handoff-record#/$defs/terminationReason"
+      ],
+      "origin": "frameworkOriginated",
+      "note": "One member per failure class the specification names, so the FR-07 mapping from class to execution state has a closed domain to map from. The reference material carried no execution-level failure taxonomy at all; it recorded only per-source outcomes, which survive here as unobservedReason. Two members preserve a distinction the specification requires and nothing else expresses: roleAssignmentNotYetEffective is a grant still propagating, accessNotGranted is a grant that does not exist."
+    },
+    {
+      "name": "incompleteTerminationReason",
+      "values": [
+        "deploymentPartiallyApplied",
+        "roleAssignmentNotYetEffective",
+        "dataSourceUnreachable",
+        "executionLimitReached"
+      ],
+      "appliesTo": [
+        "handoff-record#/$defs/incompleteTerminationReason"
+      ],
+      "origin": "frameworkOriginated",
+      "note": "The partition of terminationReason that produces an incomplete execution: every member left partial work that remains valid. Registered as a set in its own right rather than described in prose, so that moving a reason between states is an edit to the contract that the drift check sees."
+    },
+    {
+      "name": "failedTerminationReason",
+      "values": [
+        "discoveryProviderUnavailable",
+        "concurrentScopeConflict",
+        "frameworkVersionIncompatible"
+      ],
+      "appliesTo": [
+        "handoff-record#/$defs/failedTerminationReason"
+      ],
+      "origin": "frameworkOriginated",
+      "note": "The partition of terminationReason that produces a failed execution: continuing would have yielded output drawn against a world the run could not establish, so there is no partial result worth keeping. The remaining member, accessNotGranted, is pinned by a const rather than an enum because a one-member enumeration invites a second member."
+    },
+    {
+      "name": "retryBackoff",
+      "values": [
+        "none",
+        "fixed",
+        "exponential"
+      ],
+      "appliesTo": [
+        "tool-policy#/properties/retryPolicy/properties/backoff"
+      ],
+      "origin": "frameworkOriginated",
+      "note": "The spacing between retry attempts. Closed rather than a free-form expression, because a schedule the framework cannot reason about is one the posture check cannot compare against what the runtime actually holds. The reference material declared no retry behaviour."
     }
   ]
 }

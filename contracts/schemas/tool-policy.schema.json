@@ -13,7 +13,8 @@
     "onEvaluationFailure",
     "allowedCapabilityClasses",
     "denyRules",
-    "executionLimits"
+    "executionLimits",
+    "retryPolicy"
   ],
   "properties": {
     "schemaVersion": { "$ref": "#/$defs/schemaVersion" },
@@ -54,6 +55,48 @@
       "minItems": 7,
       "description": "Every one of the seven categories FR-52 names must carry an explicit deny rule. minItems together with uniqueItems and a seven-member enumeration is what forces all seven to be present: with fewer than seven distinct members the instance cannot satisfy both constraints. Explicit denial is redundant against defaultDecision on purpose, so that removing the allow list does not quietly remove the prohibition.",
       "items": { "$ref": "#/$defs/denyRule" }
+    },
+
+    "retryPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["maxAttempts", "backoff"],
+      "description": "How a retryable failure is repeated. Which failure classes are retryable is not declared here and cannot be: retryability is a property of the class, fixed by the contract, and a policy that could mark a denied grant retryable would turn a settled finding into a loop. This declares only how many times and how far apart (FR-07).",
+      "properties": {
+        "maxAttempts": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "description": "Including the first. A ceiling of 1 means no retry, which is a policy and not an absence, so the two are distinguishable."
+        },
+        "backoff": {
+          "type": "string",
+          "enum": ["none", "fixed", "exponential"],
+          "description": "The spacing between attempts. Closed, because a free-form expression would be a schedule the framework cannot reason about and the posture check cannot compare against what the runtime holds."
+        },
+        "initialDelaySeconds": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3600,
+          "description": "The first interval. Meaningful for fixed and exponential; a zero delay with no backoff repeats immediately, which is the honest representation of a retry that waits for nothing."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "backoff": { "const": "none" } },
+            "required": ["backoff"]
+          },
+          "then": {
+            "not": { "required": ["initialDelaySeconds"] },
+            "description": "A delay declared alongside no backoff is two contradictory claims about the same schedule."
+          },
+          "else": {
+            "required": ["initialDelaySeconds"],
+            "description": "A backoff strategy with no interval does not describe a schedule."
+          }
+        }
+      ]
     },
 
     "executionLimits": {

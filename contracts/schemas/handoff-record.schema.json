@@ -11,7 +11,10 @@
     "idempotencyKey",
     "turn",
     "maxTurns",
-    "autonomyLevel"
+    "autonomyLevel",
+    "executionState",
+    "attempt",
+    "maxAttempts"
   ],
   "properties": {
     "schemaVersion": { "$ref": "#/$defs/schemaVersion" },
@@ -52,14 +55,109 @@
 
     "startedAt": { "$ref": "#/$defs/timestamp" },
 
+    "completedAt": {
+      "$ref": "#/$defs/timestamp",
+      "description": "Present only for a completed execution, and forbidden for every other state. An incomplete or failed run has no completion time, and supplying one would let it join, sort and report exactly like a run that finished (FR-07)."
+    },
+
+    "attempt": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100,
+      "description": "Which attempt of this logical handoff is running, starting at 1. Distinct from turn: a turn advances the work, an attempt repeats it. Collapsing the two would make a retry of turn 3 indistinguishable from turn 4, which is the difference between repeating an observation and making a new one."
+    },
+
+    "maxAttempts": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100,
+      "description": "The retry ceiling in force. Required rather than defaulted, because a record with no ceiling is a record that cannot be shown to have respected one. That attempt does not exceed it is a semantic check; JSON Schema cannot compare two sibling values (FR-28)."
+    },
+
     "executionState": {
       "type": "string",
       "enum": ["running", "completed", "incomplete", "failed", "accessDenied"],
-      "description": "The canonical English execution states. Incomplete is distinct from failed: a run that hit a limit produced partial evidence that remains valid, while a failed one did not. Denied access is first class rather than a kind of failure, because being refused is a finding about the environment (FR-03, FR-07)."
+      "description": "The canonical English execution states, and required. Incomplete is distinct from failed: a run that hit a limit produced partial evidence that remains valid, while a failed one did not. Denied access is first class rather than a kind of failure, because being refused is a finding about the environment (FR-03, FR-07)."
+    },
+
+    "terminationReason": {
+      "$ref": "#/$defs/terminationReason",
+      "description": "Why the execution stopped. Required for every terminal state other than completed, and forbidden for running and completed. Which reasons are admissible is narrowed per state below, so the FR-07 mapping is enforced by the schema rather than restated in prose that nothing checks."
     },
 
     "description": { "type": "string", "maxLength": 500 }
   },
+
+  "allOf": [
+    {
+      "if": {
+        "properties": { "executionState": { "const": "running" } },
+        "required": ["executionState"]
+      },
+      "then": {
+        "not": {
+          "anyOf": [
+            { "required": ["terminationReason"] },
+            { "required": ["completedAt"] }
+          ]
+        },
+        "description": "A run still in progress has neither stopped nor finished. Admitting a termination reason here would let a record claim both."
+      }
+    },
+    {
+      "if": {
+        "properties": { "executionState": { "const": "completed" } },
+        "required": ["executionState"]
+      },
+      "then": {
+        "required": ["completedAt"],
+        "not": { "required": ["terminationReason"] },
+        "description": "Completion is the absence of a failure class. A completed run carrying a termination reason would be asserting that it both finished and did not."
+      }
+    },
+    {
+      "if": {
+        "properties": { "executionState": { "const": "incomplete" } },
+        "required": ["executionState"]
+      },
+      "then": {
+        "required": ["terminationReason"],
+        "not": { "required": ["completedAt"] },
+        "properties": {
+          "terminationReason": { "$ref": "#/$defs/incompleteTerminationReason" }
+        },
+        "description": "Partial work that stands. Every admissible reason here left evidence behind that remains valid; a reason that produced nothing usable belongs under failed."
+      }
+    },
+    {
+      "if": {
+        "properties": { "executionState": { "const": "failed" } },
+        "required": ["executionState"]
+      },
+      "then": {
+        "required": ["terminationReason"],
+        "not": { "required": ["completedAt"] },
+        "properties": {
+          "terminationReason": { "$ref": "#/$defs/failedTerminationReason" }
+        },
+        "description": "Failing closed. Each admissible reason here is one where proceeding would have produced output drawn against a world the run could not establish."
+      }
+    },
+    {
+      "if": {
+        "properties": { "executionState": { "const": "accessDenied" } },
+        "required": ["executionState"]
+      },
+      "then": {
+        "required": ["terminationReason"],
+        "not": { "required": ["completedAt"] },
+        "properties": {
+          "terminationReason": { "const": "accessNotGranted" }
+        },
+        "description": "Exactly one reason, and not roleAssignmentNotYetEffective. Collapsing the two would turn a deployment that is still settling into one that looks misconfigured, which is the distinction the specification requires validation preserve."
+      }
+    }
+  ],
 
   "$defs": {
     "schemaVersion": {
@@ -84,6 +182,39 @@
       "type": "string",
       "pattern": "^[0-9a-f]{64}$",
       "description": "Lowercase hex, exactly 64 characters, as ADR-0004 pins."
+    },
+    "terminationReason": {
+      "type": "string",
+      "enum": [
+        "discoveryProviderUnavailable",
+        "deploymentPartiallyApplied",
+        "roleAssignmentNotYetEffective",
+        "dataSourceUnreachable",
+        "concurrentScopeConflict",
+        "frameworkVersionIncompatible",
+        "executionLimitReached",
+        "accessNotGranted"
+      ],
+      "description": "Every failure class the specification names, closed. A closed set is what makes the FR-07 mapping checkable: an open one would let a run explain itself in text that nothing can aggregate and no state can be derived from. The entry-level counterpart is unobservedReason on the evidence manifest, which answers why one source was not read rather than why the run stopped."
+    },
+    "incompleteTerminationReason": {
+      "type": "string",
+      "enum": [
+        "deploymentPartiallyApplied",
+        "roleAssignmentNotYetEffective",
+        "dataSourceUnreachable",
+        "executionLimitReached"
+      ],
+      "description": "The subset that produces an incomplete execution. Each left partial work that remains valid, which is precisely what distinguishes incomplete from failed. Expressed as its own set rather than as prose so that moving a reason between states requires editing the contract."
+    },
+    "failedTerminationReason": {
+      "type": "string",
+      "enum": [
+        "discoveryProviderUnavailable",
+        "concurrentScopeConflict",
+        "frameworkVersionIncompatible"
+      ],
+      "description": "The subset that produces a failed execution. Each is a case where continuing would have produced output drawn against a world the run could not establish, so there is no partial result worth keeping."
     }
   }
 }
