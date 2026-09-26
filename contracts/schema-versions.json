@@ -1,0 +1,258 @@
+{
+  "schemaVersion": "1.0.0",
+  "description": "What version every schema in contracts/schemas/ is, what its content digest was when that version was published, and what changed at each version (FR-29, NFR-21).",
+  "entries": [
+    {
+      "schema": "agent-definition",
+      "version": "1.0.0",
+      "contentDigest": "6ee50ebbe9c2d20c907db668ebdec551723655e4f6b719f92355b4d212f9b29d",
+      "history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-09-26",
+          "breakingChanges": [],
+          "migration": "None required. This is the initial published version, so no consumer document predates it and nothing needs rewriting.",
+          "rationale": "Initial publication. Recorded as a version record rather than omitted, so the history is never empty and a reader never has to infer that the first entry was the beginning."
+        }
+      ]
+    },
+    {
+      "schema": "approval-ledger",
+      "version": "1.0.0",
+      "contentDigest": "ad3baab444da4bdef8baec35c572588ba129874062bb2bb957f7687e0092448f",
+      "history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-09-26",
+          "breakingChanges": [],
+          "migration": "None required. This is the initial published version, so no consumer document predates it and nothing needs rewriting.",
+          "rationale": "Initial publication. Recorded as a version record rather than omitted, so the history is never empty and a reader never has to infer that the first entry was the beginning."
+        }
+      ]
+    },
+    {
+      "schema": "assessment-result",
+      "version": "1.0.0",
+      "contentDigest": "c798528d0a7cd47862e64d4a04366935d9e56e9acdffcd32579ae4d677033e1f",
+      "history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-09-26",
+          "breakingChanges": [],
+          "migration": "None required. This is the initial published version, so no consumer document predates it and nothing needs rewriting.",
+          "rationale": "Initial publication. Recorded as a version record rather than omitted, so the history is never empty and a reader never has to infer that the first entry was the beginning."
+        }
+      ]
+    },
+    {
+      "schema": "capability-mapping",
+      "version": "1.0.0",
+      "contentDigest": "5fda72e450208dcbaa86689a3bb34210ab0f3194f5124d6df6d3b2188078ac7e",
+      "history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-09-26",
+          "breakingChanges": [],
+          "migration": "None required. This is the initial published version, so no consumer document predates it and nothing needs rewriting.",
+          "rationale": "Initial publication. Recorded as a version record rather than omitted, so the history is never empty and a reader never has to infer that the first entry was the beginning."
+        }
+      ]
+    },
+    {
+      "schema": "change-set",
+      "version": "1.0.0",
+      "contentDigest": "c239136a7def7625f3ec6f3cdf29c357bc28056d79751eecb7bf31098d1f2aae",
+      "history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-09-26",
+          "breakingChanges": [],
+          "migration": "None required. This is the initial published version, so no consumer document predates it and nothing needs rewriting.",
+          "rationale": "Initial publication. Recorded as a version record rather than omitted, so the history is never empty and a reader never has to infer that the first entry was the beginning."
+        }
+      ]
+    },
+    {
+      "schema": "connector-config",
+      "version": "1.0.0",
+      "contentDigest": "60bb4f0fdf9966f87be20200f30e495a81b66645e57e57eaafec74fd733d08e0",
+      "history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-09-26",
+          "breakingChanges": [],
+          "migration": "None required. This is the initial published version, so no consumer document predates it and nothing needs rewriting.",
+          "rationale": "Initial publication. Recorded as a version record rather than omitted, so the history is never empty and a reader never has to infer that the first entry was the beginning."
+        }
+      ]
+    },
+    {
+      "schema": "core-paths",
+      "version": "1.0.0",
+      "contentDigest": "648d527e1f7e8940a9431cc6b0f0a6ca5763f38f126fe73227d31f0756b7f3d1",
+      "history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-09-26",
+          "breakingChanges": [],
+          "migration": "None required. This is the initial published version, so no consumer document predates it and nothing needs rewriting.",
+          "rationale": "Initial publication. Recorded as a version record rather than omitted, so the history is never empty and a reader never has to infer that the first entry was the beginning."
+        }
+      ]
+    },
+    {
+      "schema": "environment-binding",
+      "version": "1.0.0",
+      "contentDigest": "ee756b0ceaf3200e3bc95fdf8dd8db573ffeec1a9f303092f7012a5f3683b808",
+      "history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-09-26",
+          "breakingChanges": [],
+          "migration": "None required. This is the initial published version, so no consumer document predates it and nothing needs rewriting.",
+          "rationale": "Initial publication. Recorded as a version record rather than omitted, so the history is never empty and a reader never has to infer that the first entry was the beginning."
+        }
+      ]
+    },
+    {
+      "schema": "evidence-manifest",
+      "version": "1.0.0",
+      "contentDigest": "676f512d813236aee7d161a43de5eb3e5179606aca36d336ac2d00fc2e76646d",
+      "history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-09-26",
+          "breakingChanges": [],
+          "migration": "None required. This is the initial published version, so no consumer document predates it and nothing needs rewriting.",
+          "rationale": "Initial publication. Recorded as a version record rather than omitted, so the history is never empty and a reader never has to infer that the first entry was the beginning."
+        }
+      ]
+    },
+    {
+      "schema": "framework-config",
+      "version": "1.0.0",
+      "contentDigest": "e6a49b03cd57de794d8bd22e3a5fdbecae41cfe6f23dc3a41464ecc3da809d9c",
+      "history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-09-26",
+          "breakingChanges": [],
+          "migration": "None required. This is the initial published version, so no consumer document predates it and nothing needs rewriting.",
+          "rationale": "Initial publication. Recorded as a version record rather than omitted, so the history is never empty and a reader never has to infer that the first entry was the beginning."
+        }
+      ]
+    },
+    {
+      "schema": "handoff-record",
+      "version": "1.0.0",
+      "contentDigest": "e72d485a1bda03bb7de20f5fb077ea0adcd7c0bf973091f14bea5c371d3ac1cb",
+      "history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-09-26",
+          "breakingChanges": [],
+          "migration": "None required. This is the initial published version, so no consumer document predates it and nothing needs rewriting.",
+          "rationale": "Initial publication. Recorded as a version record rather than omitted, so the history is never empty and a reader never has to infer that the first entry was the beginning."
+        }
+      ]
+    },
+    {
+      "schema": "query-catalogue",
+      "version": "1.0.0",
+      "contentDigest": "abc5cf914e7f58671dcb8f3352a7332de600a7e1f2d07beb912420f9e79dc1e6",
+      "history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-09-26",
+          "breakingChanges": [],
+          "migration": "None required. This is the initial published version, so no consumer document predates it and nothing needs rewriting.",
+          "rationale": "Initial publication. Recorded as a version record rather than omitted, so the history is never empty and a reader never has to infer that the first entry was the beginning."
+        }
+      ]
+    },
+    {
+      "schema": "readiness-result",
+      "version": "1.0.0",
+      "contentDigest": "1a4b78588d08a80f4d869176647e10d2c8cb1676a9c08c494aface172a6be9ed",
+      "history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-09-26",
+          "breakingChanges": [],
+          "migration": "None required. This is the initial published version, so no consumer document predates it and nothing needs rewriting.",
+          "rationale": "Initial publication. Recorded as a version record rather than omitted, so the history is never empty and a reader never has to infer that the first entry was the beginning."
+        }
+      ]
+    },
+    {
+      "schema": "schema-versions",
+      "version": "1.0.0",
+      "contentDigest": "81e0b8a1505a50d67eacc9fd2ac1952a188cfe67afbd5af93cad81c6ca0cb57f",
+      "history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-09-26",
+          "breakingChanges": [],
+          "migration": "None required. This is the initial published version, so no consumer document predates it and nothing needs rewriting.",
+          "rationale": "Initial publication. Recorded as a version record rather than omitted, so the history is never empty and a reader never has to infer that the first entry was the beginning."
+        }
+      ]
+    },
+    {
+      "schema": "scope-contract",
+      "version": "1.0.0",
+      "contentDigest": "3f8aa89a1eaef2a254adc459319fb89f2458ba9b93d8cf0243fe7e370ac081bc",
+      "history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-09-26",
+          "breakingChanges": [],
+          "migration": "None required. This is the initial published version, so no consumer document predates it and nothing needs rewriting.",
+          "rationale": "Initial publication. Recorded as a version record rather than omitted, so the history is never empty and a reader never has to infer that the first entry was the beginning."
+        }
+      ]
+    },
+    {
+      "schema": "tool-policy",
+      "version": "1.0.0",
+      "contentDigest": "199f005e2de05c4ef0daad713415eb4ccfbd1246e35c31e983fcfb09c1c284e4",
+      "history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-09-26",
+          "breakingChanges": [],
+          "migration": "None required. This is the initial published version, so no consumer document predates it and nothing needs rewriting.",
+          "rationale": "Initial publication. Recorded as a version record rather than omitted, so the history is never empty and a reader never has to infer that the first entry was the beginning."
+        }
+      ]
+    },
+    {
+      "schema": "vocabulary",
+      "version": "1.0.0",
+      "contentDigest": "494d029441989d12a834a4d48a8e96d616b82735118f098fbdd236d8e4187d9a",
+      "history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-09-26",
+          "breakingChanges": [],
+          "migration": "None required. This is the initial published version, so no consumer document predates it and nothing needs rewriting.",
+          "rationale": "Initial publication. Recorded as a version record rather than omitted, so the history is never empty and a reader never has to infer that the first entry was the beginning."
+        }
+      ]
+    },
+    {
+      "schema": "workload-extension",
+      "version": "1.0.0",
+      "contentDigest": "3c0c2206b720be1c96ed98e7c7b13ea149f78b82d2bc836d677ba03864bf7ecc",
+      "history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-09-26",
+          "breakingChanges": [],
+          "migration": "None required. This is the initial published version, so no consumer document predates it and nothing needs rewriting.",
+          "rationale": "Initial publication. Recorded as a version record rather than omitted, so the history is never empty and a reader never has to infer that the first entry was the beginning."
+        }
+      ]
+    }
+  ]
+}

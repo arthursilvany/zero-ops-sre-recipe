@@ -529,12 +529,65 @@ def resolve_artifact(target):
     return target
 
 
+def pinned_version(schema):
+    """The version a schema declares itself to be, or None.
+
+    Read from wherever the schema keeps its schemaVersion definition, because
+    two shapes are in use: most schemas define it under $defs and reference it,
+    one carries it inline under properties. Looking in both is cheaper than a
+    convention nothing enforces, and returning None rather than raising keeps
+    this usable against a schema written before the pin existed.
+    """
+    for container in (schema.get("$defs"), schema.get("properties")):
+        if isinstance(container, dict):
+            definition = container.get("schemaVersion")
+            if isinstance(definition, dict) and "const" in definition:
+                return definition["const"]
+    return None
+
+
+def version_findings(instance, schema):
+    """Refuse a document written against a different version of the schema.
+
+    Structural findings from a version mismatch are noise: they describe a
+    contract the document was never written against, so every one of them is
+    true and none of them is the fault. Reporting the mismatch alone, with
+    somewhere to look, is the difference between a diagnosis and a list of
+    symptoms (FR-27, FR-29).
+
+    The message names the version the schema expects and never the version the
+    document declared. The expected value comes from the schema, which is ours;
+    the declared value came from the document, and FR-27 holds that values out
+    of documents do not go into messages.
+    """
+    if not isinstance(instance, dict):
+        return []
+    expected = pinned_version(schema)
+    declared = instance.get("schemaVersion")
+    if expected is None or not isinstance(declared, str) or declared == expected:
+        return []
+    return [
+        Finding(
+            "/schemaVersion",
+            "declares a different version of this schema than the one in this "
+            "repository, which is %s. Structural findings are suppressed "
+            "because they would describe a contract this document was never "
+            "written against. See contracts/schema-register.md for the "
+            "migration action recorded for each version." % expected,
+        )
+    ]
+
+
 def validate_artifact(artifact, schema_path=None):
-    """Structural, then semantic, then Recommended-area warnings."""
+    """Version, then structural, then semantic, then Recommended-area warnings."""
     kind = kind_of(artifact)
     path = schema_path or schema_path_for(kind)
     schema = load_json(path, "schema")
     instance = load_json(artifact, "configuration")
+
+    findings = version_findings(instance, schema)
+    if findings:
+        return findings, []
 
     findings = structural_findings(instance, schema)
     if findings:

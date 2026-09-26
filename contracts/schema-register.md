@@ -44,6 +44,7 @@ fails just as an entry with no schema does.
 | Readiness result | `readiness-result.schema.json` | Recommended | Execution | Whether the workload can be observed at all |
 | Core path declaration | `core-paths.schema.json` | Required | Framework | Describes `contracts/core-paths.json`, including the runtime identifiers it forbids |
 | Vocabulary | `vocabulary.schema.json` | Required | Framework | Describes `contracts/vocabulary/vocabulary.json`. Every enumerated value set defined in this directory appears there exactly once, with its origin recorded (FR-03) |
+| Schema version register | `schema-versions.schema.json` | Required | Framework | Describes `contracts/schema-versions.json`. Every schema in this directory appears there exactly once, with its current version, the content digest it had when that version was published, and what changed at each version (FR-29, NFR-21) |
 
 ## Rules every schema satisfies
 
@@ -52,7 +53,11 @@ is covered without anyone remembering to add it (NEG-I):
 
 - `additionalProperties: false` on every object, so an unknown property is rejected and the
   offending path is named (FR-27).
-- An explicit `schemaVersion`, required (FR-05).
+- An explicit `schemaVersion`, required (FR-05), and pinned with `const` to the version the
+  schema actually is. The pattern alone made the declaration decorative: an instance could
+  claim any version at all and still validate, so a document written against a contract that
+  no longer exists passed unremarked. With the pin, a mismatch is inexpressible rather than
+  merely disallowed.
 - No property name matching a secret-bearing pattern. A name ending in `Ref` is an
   indirection and is permitted, because it names where a value lives and never the value
   (SEC-013).
@@ -98,3 +103,39 @@ enforced by the validator and not by any schema (FR-28):
 - A recomputed canonical hash that does not match the recorded one.
 - A scope entry that no longer resolves, which fails at preview rather than after
   provisioning.
+
+## Versioning and migration
+
+Every schema carries a semantic version, pinned on its own `schemaVersion` with `const` and
+recorded in `contracts/schema-versions.json`. Three checks hold the arrangement together,
+and each exists because the one before it can be satisfied while the contract still drifts:
+
+| Check | What it refuses | Why the previous check was not enough |
+|-------|-----------------|---------------------------------------|
+| The pin matches the register, in both directions | A schema and the register disagreeing about what version the schema is | A version written in two places becomes two versions the moment one is edited |
+| The recorded content digest matches the schema recomputed | A schema whose content moved while its version stayed put | Nothing about declaring a version obliges anyone to change it. Without the digest, an in-place edit and an untouched file are indistinguishable, so a breaking change ships under an unchanged version and every existing instance keeps validating against a contract that no longer means what it did (NFR-21) |
+| Every recorded version carries breaking changes and a migration action | A version published with no statement of what it costs to adopt | Silence and "nothing breaks" look identical from outside, and only one of them is a claim someone made (FR-29) |
+
+Breaking changes and the migration action are both required on every version record,
+including the first. The initial version records an empty breaking-change list and a
+migration action stating that none is required, rather than omitting the fields: a reader
+should never have to infer whether the first entry was the beginning or an oversight.
+
+The major component is the compatibility boundary. An instance declaring a different version
+is refused before structural validation runs, because findings drawn from a contract the
+document was never written against are all true and none of them is the fault. The refusal
+names the version this repository holds and points here; it never repeats the version the
+document declared, for the same reason no other finding repeats a value out of a document
+(FR-27).
+
+### Changing a schema
+
+1. Edit the schema and update its `const`.
+2. Update the matching entry in `contracts/schema-versions.json`: the `version`, the
+   `contentDigest`, and a new `history` record with the date, the breaking changes and the
+   migration action.
+3. Run the suite. A digest left stale, a version left unbumped, or a migration action left
+   unwritten each fail by name.
+
+The digest is computed over the RFC 8785 canonical form, so reformatting a schema without
+changing its meaning produces the same digest and demands no version bump.

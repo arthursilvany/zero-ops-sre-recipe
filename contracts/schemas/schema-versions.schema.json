@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zero-ops-sre-recipe.contracts/schemas/schema-versions.schema.json",
+  "title": "Schema version register",
+  "description": "Describes contracts/schema-versions.json, which records what version every schema in contracts/schemas/ currently is, what its content digest was when that version was published, and what changed at each version. Without the recorded digest, NFR-21's requirement that the version identifier change is unenforceable: a schema edited in place is indistinguishable from one that was never touched, so a breaking change can ship under an unchanged version and every instance keeps validating against a contract that no longer means what it did.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "description", "entries"],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0.0",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "The version of this schema the instance conforms to (FR-05, FR-29). Pinned with const rather than left to the pattern: without it an instance could declare any version at all and still validate, which made the declaration decorative (NFR-21)."
+    },
+
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1000,
+      "description": "What this register is for, in the maintainer's words."
+    },
+
+    "entries": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "description": "One entry per schema in contracts/schemas/, with no exceptions. Totality is what makes the register usable: a schema absent from it is unversioned and undetectably so, which is the same state the register exists to end. The completeness check runs in both directions, so a schema added without an entry fails just as an entry naming no schema does.",
+      "items": { "$ref": "#/$defs/versionEntry" }
+    }
+  },
+
+  "$defs": {
+    "schemaName": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{1,62}[a-z0-9]$",
+      "description": "The schema's name without the .schema.json suffix, matching the file under contracts/schemas/. The suffix is omitted so the register does not encode a file extension it would have to be rewritten to change."
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "Semantic version. The major component is the compatibility boundary: an instance declaring a different major was written against a contract this schema no longer honours."
+    },
+    "sha256Hex": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Lowercase hex, exactly 64 characters, as ADR-0004 pins. Computed over the RFC 8785 canonical form of the schema document, so a reformatting that changes no meaning produces the same digest and does not demand a version bump."
+    },
+    "isoDate": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "description": "The date the version was published, as YYYY-MM-DD."
+    },
+    "breakingChange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["change", "affects"],
+      "properties": {
+        "change": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 500,
+          "description": "What stopped being accepted, or what became required. Written so a consumer can tell whether their document is affected without diffing the schema."
+        },
+        "affects": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "The JSON pointer or property path the change lands on, so the consumer can look at the right part of their document."
+        }
+      }
+    },
+    "versionRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "date", "breakingChanges", "migration"],
+      "description": "One published version. FR-29 requires every version change to list its breaking changes and the migration action, or to state that none apply. Both properties are required, so 'none apply' has to be written down rather than inferred from an absent field: silence and 'nothing breaks' are indistinguishable from the outside, and only one of them is a claim anyone made.",
+      "properties": {
+        "version": { "$ref": "#/$defs/version" },
+        "date": { "$ref": "#/$defs/isoDate" },
+        "breakingChanges": {
+          "type": "array",
+          "uniqueItems": true,
+          "description": "Required, and required even when empty. An empty list is the explicit claim that nothing breaks; an absent list would be someone forgetting to check.",
+          "items": { "$ref": "#/$defs/breakingChange" }
+        },
+        "migration": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 1000,
+          "description": "What a consumer must do to move to this version. Required with a floor on its length, so 'none required' has to be stated and briefly justified rather than left blank."
+        },
+        "rationale": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "Why the version changed, for a reader who was not present for the decision."
+        }
+      }
+    },
+    "versionEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "version", "contentDigest", "history"],
+      "properties": {
+        "schema": { "$ref": "#/$defs/schemaName" },
+        "version": {
+          "$ref": "#/$defs/version",
+          "description": "The version this schema is now. A check asserts it equals the const the schema pins on its own schemaVersion, so the register and the schema cannot disagree about what version the schema is."
+        },
+        "contentDigest": {
+          "$ref": "#/$defs/sha256Hex",
+          "description": "The canonical digest of the schema as published at the current version. A check recomputes it: a schema whose content moved while its version stayed put fails the build, which is the only way NFR-21's 'the version identifier changes' can be enforced rather than hoped for."
+        },
+        "history": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "description": "Every published version, oldest first, including the initial one. The initial version is a record with no breaking changes rather than an omission, so the history is never empty and a reader never has to guess whether the first entry was the beginning.",
+          "items": { "$ref": "#/$defs/versionRecord" }
+        }
+      }
+    }
+  }
+}
