@@ -46,9 +46,8 @@
       },
       {
         "path": "contracts/vocabulary/",
-        "status": "planned",
-        "purpose": "English identifiers with recorded provenance (FR-03).",
-        "materialisedBy": "T1.06"
+        "status": "present",
+        "purpose": "English identifiers with recorded provenance (FR-03)."
       },
       {
         "path": "contracts/schema-register.md",

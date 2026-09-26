@@ -54,7 +54,7 @@
 
     "executionState": {
       "type": "string",
-      "enum": ["running", "completed", "incomplete", "failed", "deniedAccess"],
+      "enum": ["running", "completed", "incomplete", "failed", "accessDenied"],
       "description": "The canonical English execution states. Incomplete is distinct from failed: a run that hit a limit produced partial evidence that remains valid, while a failed one did not. Denied access is first class rather than a kind of failure, because being refused is a finding about the environment (FR-03, FR-07)."
     },
 

@@ -43,6 +43,7 @@ fails just as an entry with no schema does.
 | Assessment result | `assessment-result.schema.json` | Recommended | Execution | A diagnostic finding, deliberately not a change set (FR-57) |
 | Readiness result | `readiness-result.schema.json` | Recommended | Execution | Whether the workload can be observed at all |
 | Core path declaration | `core-paths.schema.json` | Required | Framework | Describes `contracts/core-paths.json`, including the runtime identifiers it forbids |
+| Vocabulary | `vocabulary.schema.json` | Required | Framework | Describes `contracts/vocabulary/vocabulary.json`. Every enumerated value set defined in this directory appears there exactly once, with its origin recorded (FR-03) |
 
 ## Rules every schema satisfies
 
@@ -81,6 +82,8 @@ contract has no way to represent:
 | A consumer query posing as a default | A workload extension pins entry origin to `consumerExtension` |
 | An agent-created schedule | Cadence is a closed enumeration, not a free-form expression (FR-52) |
 | A policy that fails open | Default decision, conflict resolution and evaluation-failure behaviour are all pinned to deny |
+| A value renamed without provenance | Every enumerated value set is registered in the vocabulary with an origin, and the drift check compares the register against the schema text in both directions |
+| A reference token used as an identifier | Concept names and canonical values admit no underscore and no upper-case first character, so a reference token can only appear as recorded provenance data |
 
 ## What structure cannot check
 

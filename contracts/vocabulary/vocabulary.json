@@ -1,0 +1,605 @@
+{
+  "schemaVersion": "1.0.0",
+  "description": "The canonical English vocabulary, and where each value came from. Every enumerated value in contracts/schemas/ appears here exactly once, so an omission is a failure rather than a silence.",
+  "entries": [
+    {
+      "name": "capabilityClass",
+      "values": [
+        "readResourceMetadata",
+        "readResourceConfiguration",
+        "readMetrics",
+        "readLogs",
+        "readAlerts",
+        "readCostData",
+        "runCataloguedQuery"
+      ],
+      "appliesTo": [
+        "agent-definition#/$defs/capabilityClass",
+        "capability-mapping#/$defs/capabilityClass",
+        "query-catalogue#/$defs/capabilityClass",
+        "tool-policy#/$defs/capabilityClass",
+        "workload-extension#/$defs/capabilityClass"
+      ],
+      "origin": "frameworkOriginated",
+      "note": "Generalised from the reference read-only capability set, which named provider tool identifiers directly. Those identifiers were recorded as unconfirmed in the source analysis, so adopting them would have pinned the core to an unverified runtime surface. The class names are deliberately provider-neutral; the mapping to runtime tools lives in the binding layer."
+    },
+    {
+      "name": "agentAccessLevel",
+      "values": [
+        "readOnly"
+      ],
+      "appliesTo": [
+        "agent-definition#/properties/accessLevel"
+      ],
+      "origin": "frameworkOriginated",
+      "note": "Single-valued on purpose. A second value would make a write-capable agent expressible in v1."
+    },
+    {
+      "name": "connectorAccessMode",
+      "values": [
+        "readOnly"
+      ],
+      "appliesTo": [
+        "connector-config#/properties/access/properties/mode"
+      ],
+      "origin": "frameworkOriginated",
+      "note": "Distinct from agentAccessLevel despite sharing a value. One constrains the agent, the other constrains a single data-source connection."
+    },
+    {
+      "name": "autonomyLevel",
+      "values": [
+        "readOnly"
+      ],
+      "appliesTo": [
+        "handoff-record#/properties/autonomyLevel"
+      ],
+      "origin": "referenceDerived",
+      "referenceValues": [
+        {
+          "value": "readOnly",
+          "referenceValue": "READ_ONLY"
+        }
+      ],
+      "note": "The reference handoff contract also carried REVIEW_FIRST and HUMAN_ONLY. Both are omitted rather than renamed: they describe approval routing for mutations, and v1 has no mutation to route. Adding them would declare a capability that does not exist."
+    },
+    {
+      "name": "actionMode",
+      "values": [
+        "observe",
+        "propose"
+      ],
+      "appliesTo": [
+        "agent-definition#/properties/actionMode"
+      ],
+      "origin": "frameworkOriginated",
+      "note": "The read-only diagnostics and proposed-mutation split named in the source analysis as a core invariant, expressed as a value rather than left to convention."
+    },
+    {
+      "name": "modelProviderKind",
+      "values": [
+        "azureOpenAi",
+        "azureAiFoundry"
+      ],
+      "appliesTo": [
+        "agent-definition#/properties/modelProvider/properties/kind"
+      ],
+      "origin": "frameworkOriginated",
+      "note": "Named in the binding-facing part of the agent definition rather than in a core path, because the set is provider-specific."
+    },
+    {
+      "name": "approvalDecision",
+      "values": [
+        "approved",
+        "rejected"
+      ],
+      "appliesTo": [
+        "approval-ledger#/$defs/approvalEntry/properties/decision"
+      ],
+      "origin": "referenceDerived",
+      "referenceValues": [
+        {
+          "value": "approved",
+          "referenceValue": "APPROVED"
+        },
+        {
+          "value": "rejected",
+          "referenceValue": "REJECTED"
+        }
+      ],
+      "note": "The reference ledger also carried REVOKED. Omitted deliberately: revocation of an approval that was never acted on has no meaning in v1, where nothing executes. Reintroducing it belongs with the execution adapter."
+    },
+    {
+      "name": "assessmentStatus",
+      "values": [
+        "healthy",
+        "degraded",
+        "atRisk",
+        "indeterminate"
+      ],
+      "appliesTo": [
+        "assessment-result#/$defs/assessmentStatus"
+      ],
+      "origin": "referenceDerived",
+      "referenceValues": [
+        {
+          "value": "indeterminate",
+          "referenceValue": "EVIDENCIA_INSUFICIENTE"
+        }
+      ],
+      "note": "The reference suite split this across two enums that overlapped: a Portuguese assessment status describing how complete the assessment was, and an English health enum describing what it found. Conflating completeness with health let an assessment that had observed nothing report a health verdict. They are separated here: health-shaped values stay in this enum, and completeness moved to executionState. Only the value that genuinely expresses that the evidence does not support a verdict is carried over."
+    },
+    {
+      "name": "confidence",
+      "values": [
+        "high",
+        "medium",
+        "low",
+        "indeterminate"
+      ],
+      "appliesTo": [
+        "assessment-result#/$defs/confidence",
+        "readiness-result#/$defs/confidence"
+      ],
+      "origin": "referenceDerived",
+      "referenceValues": [
+        {
+          "value": "high",
+          "referenceValue": "ALTA"
+        },
+        {
+          "value": "medium",
+          "referenceValue": "MEDIA"
+        },
+        {
+          "value": "low",
+          "referenceValue": "BAIXA"
+        },
+        {
+          "value": "indeterminate",
+          "referenceValue": "INSUFICIENTE"
+        }
+      ],
+      "note": "A direct rename of the reference confidence scale. The fourth value became indeterminate rather than insufficient: the reference value meant that the evidence did not support any confidence rating, which is an absence of a rating rather than the lowest rating. Translating it as a fourth degree below low would have made barely confident and cannot say indistinguishable."
+    },
+    {
+      "name": "findingSeverity",
+      "values": [
+        "informational",
+        "low",
+        "medium",
+        "high"
+      ],
+      "appliesTo": [
+        "assessment-result#/$defs/finding/properties/severity",
+        "workload-extension#/$defs/alertDefinition/properties/severity"
+      ],
+      "origin": "frameworkOriginated",
+      "note": "Shares three tokens with confidence and means something unrelated. Severity ranks the finding; confidence ranks the evidence behind it. A high-severity finding held with low confidence is a normal and important combination, so the two scales are kept separate."
+    },
+    {
+      "name": "nonObservedClassification",
+      "values": [
+        "derived",
+        "inferred",
+        "recommended"
+      ],
+      "appliesTo": [
+        "assessment-result#/$defs/finding/properties/classification",
+        "evidence-manifest#/$defs/conclusion/properties/classification"
+      ],
+      "origin": "referenceDerived",
+      "referenceValues": [
+        {
+          "value": "derived",
+          "referenceValue": "DERIVED"
+        },
+        {
+          "value": "inferred",
+          "referenceValue": "INFERRED"
+        },
+        {
+          "value": "recommended",
+          "referenceValue": "RECOMMENDED"
+        }
+      ],
+      "note": "Adopted from the reference evidence classification, which was already English. The reference fourth value OBSERVED is not here: a conclusion carrying this classification is by definition not observed, and keeping it alongside would let a claim call itself observed without citing evidence. Observation is expressed instead by the presence of evidence references."
+    },
+    {
+      "name": "verificationState",
+      "values": [
+        "unverified",
+        "reconciled"
+      ],
+      "appliesTo": [
+        "capability-mapping#/properties/verificationState"
+      ],
+      "origin": "frameworkOriginated",
+      "note": "Exists because the source analysis recorded the reference runtime tool identifiers as unconfirmed. A mapping must be able to say it has not been checked against a real runtime."
+    },
+    {
+      "name": "changeSetLifecycleState",
+      "values": [
+        "proposed",
+        "approved",
+        "rejected",
+        "withdrawn"
+      ],
+      "appliesTo": [
+        "change-set#/properties/lifecycleState"
+      ],
+      "origin": "referenceDerived",
+      "referenceValues": [
+        {
+          "value": "proposed",
+          "referenceValue": "PROPOSED"
+        },
+        {
+          "value": "approved",
+          "referenceValue": "APPROVED"
+        },
+        {
+          "value": "rejected",
+          "referenceValue": "REJECTED"
+        }
+      ],
+      "note": "The reference lifecycle also carried EXECUTING, VERIFIED, ROLLED_BACK, EXPIRED and BLOCKED. Every value describing a change that has run is deliberately absent, so a v1 change set cannot represent having been applied. An artifact that cannot express execution is a stronger guarantee than one that merely has not executed."
+    },
+    {
+      "name": "networkAccessMode",
+      "values": [
+        "publicEndpoint",
+        "privateEndpoint"
+      ],
+      "appliesTo": [
+        "connector-config#/properties/access/properties/networkAccess",
+        "workload-extension#/properties/networkAccessMode"
+      ],
+      "origin": "referenceDerived",
+      "note": "The reference network modes named a workload technology and a collection strategy rather than a network path, and the source analysis lists that set as a workload-specific extension point. What generalises is whether the endpoint is reachable publicly or privately."
+    },
+    {
+      "name": "authenticationMethod",
+      "values": [
+        "managedIdentity",
+        "workloadIdentity"
+      ],
+      "appliesTo": [
+        "connector-config#/properties/authentication/properties/method"
+      ],
+      "origin": "frameworkOriginated",
+      "note": "Both values are credential-free by construction. No value names a secret, a key or a connection string, so a connector that authenticates with a stored secret is inexpressible."
+    },
+    {
+      "name": "connectorKind",
+      "values": [
+        "logAnalytics",
+        "metrics",
+        "resourceGraph",
+        "http"
+      ],
+      "appliesTo": [
+        "connector-config#/properties/kind"
+      ],
+      "origin": "referenceDerived",
+      "note": "Generalised from the reference connector toggles. The reference named its own telemetry products; these name data-source shapes, with http as the neutral escape hatch."
+    },
+    {
+      "name": "corePathStatus",
+      "values": [
+        "present",
+        "planned"
+      ],
+      "appliesTo": [
+        "core-paths#/$defs/entryList/items/properties/status"
+      ],
+      "origin": "frameworkOriginated",
+      "note": "Lets the core declaration name a path that a later task will create, without the gate either failing on it or pretending it exists."
+    },
+    {
+      "name": "environmentTier",
+      "values": [
+        "nonProduction",
+        "production"
+      ],
+      "appliesTo": [
+        "environment-binding#/properties/tier"
+      ],
+      "origin": "referenceDerived",
+      "note": "The reference used a fixed production environment contract, which the exclusion list forbids carrying over. The tier is kept as a general distinction because approval and limit defaults differ by it; no environment name, subscription or date comes with it."
+    },
+    {
+      "name": "dataClassification",
+      "values": [
+        "public",
+        "internal",
+        "confidential",
+        "restricted"
+      ],
+      "appliesTo": [
+        "evidence-manifest#/$defs/evidenceEntry/properties/dataClassification"
+      ],
+      "origin": "referenceDerived",
+      "referenceValues": [
+        {
+          "value": "public",
+          "referenceValue": "PUBLIC"
+        },
+        {
+          "value": "internal",
+          "referenceValue": "INTERNAL"
+        },
+        {
+          "value": "confidential",
+          "referenceValue": "CONFIDENTIAL"
+        },
+        {
+          "value": "restricted",
+          "referenceValue": "HIGHLY_CONFIDENTIAL"
+        }
+      ],
+      "note": "The top band became restricted rather than a superlative of the band below it. The reference name reads as a degree of confidential, which invites treating the boundary as a matter of emphasis; the band exists because handling rules change, not because the content is more sensitive by degree."
+    },
+    {
+      "name": "observationState",
+      "values": [
+        "observed",
+        "unobserved"
+      ],
+      "appliesTo": [
+        "evidence-manifest#/$defs/evidenceEntry/properties/observationState"
+      ],
+      "origin": "referenceDerived",
+      "referenceValues": [
+        {
+          "value": "observed",
+          "referenceValue": "OBSERVED"
+        }
+      ],
+      "note": "Split out of the reference classification enum, which mixed whether something was seen with how a conclusion was reached. Separating them is what lets the schema require a content hash exactly when an entry is observed."
+    },
+    {
+      "name": "provenanceClassification",
+      "values": [
+        "directObservation",
+        "platformTelemetry",
+        "operatorSupplied",
+        "derivedFromObservation"
+      ],
+      "appliesTo": [
+        "evidence-manifest#/$defs/evidenceEntry/properties/provenanceClassification"
+      ],
+      "origin": "referenceDerived",
+      "note": "The reference recorded provenance as a collection state describing what the tooling had done to a file, not where the evidence came from, so an operator-supplied claim and a platform reading were indistinguishable once both were validated. These values name the source instead, which is what a reader needs in order to weigh a conclusion."
+    },
+    {
+      "name": "unobservedReason",
+      "values": [
+        "accessDenied",
+        "sourceUnreachable",
+        "timedOut",
+        "limitExceeded",
+        "notApplicable"
+      ],
+      "appliesTo": [
+        "evidence-manifest#/$defs/evidenceEntry/properties/unobservedReason"
+      ],
+      "origin": "referenceDerived",
+      "referenceValues": [
+        {
+          "value": "accessDenied",
+          "referenceValue": "SEM_ACESSO"
+        }
+      ],
+      "note": "This is the access-denied state named in FR-03. It is first class rather than folded into a general failure value, because an agent denied permission and an agent whose query timed out produce the same empty result and mean opposite things: the first is a finding about the environment, the second is a gap in the run."
+    },
+    {
+      "name": "scopeEntryKind",
+      "values": [
+        "resourceGroup",
+        "tag",
+        "resource"
+      ],
+      "appliesTo": [
+        "framework-config#/$defs/scopeEntry/properties/kind",
+        "scope-contract#/$defs/scopeEntry/properties/kind",
+        "workload-extension#/$defs/scopeEntry/properties/kind"
+      ],
+      "origin": "frameworkOriginated",
+      "note": "Scope is expressed as a selection mechanism, never as a workload type, so the core ships no workload-type identifier."
+    },
+    {
+      "name": "externalReferenceProvider",
+      "values": [
+        "keyVault",
+        "managedIdentity",
+        "environmentVariable"
+      ],
+      "appliesTo": [
+        "framework-config#/properties/externalReferences/properties/entries/items/properties/provider"
+      ],
+      "origin": "frameworkOriginated",
+      "note": "Every value names somewhere a value is fetched from at run time. There is deliberately no inline value, so a configuration cannot carry a secret in the file that declares it."
+    },
+    {
+      "name": "remediationMode",
+      "values": [
+        "readOnly",
+        "proposeOnly"
+      ],
+      "appliesTo": [
+        "framework-config#/properties/remediationPermissions/properties/mode"
+      ],
+      "origin": "frameworkOriginated",
+      "note": "No value permits a mutation. The remediation contract exists ahead of the capability, which is the pattern the source analysis found in the reference change set."
+    },
+    {
+      "name": "executionState",
+      "values": [
+        "running",
+        "completed",
+        "incomplete",
+        "failed",
+        "accessDenied"
+      ],
+      "appliesTo": [
+        "handoff-record#/properties/executionState"
+      ],
+      "origin": "referenceDerived",
+      "referenceValues": [
+        {
+          "value": "running",
+          "referenceValue": "RUNNING"
+        },
+        {
+          "value": "completed",
+          "referenceValue": "COMPLETO"
+        },
+        {
+          "value": "incomplete",
+          "referenceValue": "PROVISORIO"
+        },
+        {
+          "value": "failed",
+          "referenceValue": "FAILED"
+        },
+        {
+          "value": "accessDenied",
+          "referenceValue": "SEM_ACESSO"
+        }
+      ],
+      "note": "The canonical execution-state vocabulary required by FR-03. The reference spread this across a Portuguese assessment status and an English handoff state that overlapped. Two Portuguese values moved here from the assessment status, because they describe how far a run got rather than what it found. The reference routing steps are dropped as stages of a mutation pipeline that v1 does not have, and a partial-success value is dropped as a synonym of incomplete that invited both being used. accessDenied is spelled exactly as in unobservedReason: two English spellings of one reference value would defeat the point of a canonical vocabulary."
+    },
+    {
+      "name": "queryOrigin",
+      "values": [
+        "frameworkDefault",
+        "consumerExtension"
+      ],
+      "appliesTo": [
+        "query-catalogue#/$defs/catalogueEntry/properties/origin"
+      ],
+      "origin": "frameworkOriginated",
+      "note": "Makes the separability of consumer content from framework content a recorded property of each query rather than a directory convention."
+    },
+    {
+      "name": "readinessCheckOutcome",
+      "values": [
+        "passed",
+        "failed",
+        "notApplicable",
+        "notEvaluated"
+      ],
+      "appliesTo": [
+        "readiness-result#/$defs/readinessCheck/properties/outcome"
+      ],
+      "origin": "frameworkOriginated",
+      "note": "The last two values are kept apart. A check that did not apply and a check that never ran both produce no result and mean different things; collapsing them would let an unrun check read as a deliberate exclusion."
+    },
+    {
+      "name": "readinessStatus",
+      "values": [
+        "ready",
+        "readyWithFindings",
+        "notReady",
+        "indeterminate"
+      ],
+      "appliesTo": [
+        "readiness-result#/$defs/readinessStatus"
+      ],
+      "origin": "referenceDerived",
+      "note": "The reference validation enum named the reason for each blocked outcome and distinguished two ready variants by network path. Those encode a specific topology, which the source analysis classifies as a workload extension point. The status says whether the environment is ready; the reason belongs in the checks that produced it."
+    },
+    {
+      "name": "denyCategory",
+      "values": [
+        "write",
+        "destructiveOperation",
+        "arbitraryExecution",
+        "secretsAccess",
+        "selfApproval",
+        "externalPublication",
+        "agentCreatedSchedule"
+      ],
+      "appliesTo": [
+        "tool-policy#/$defs/denyRule/properties/category"
+      ],
+      "origin": "frameworkOriginated",
+      "note": "The seven categories a tool policy must deny. The set is closed and the schema requires all seven, so a policy that omits one is unwritable rather than merely non-compliant."
+    },
+    {
+      "name": "policyDecision",
+      "values": [
+        "deny"
+      ],
+      "appliesTo": [
+        "tool-policy#/properties/defaultDecision",
+        "tool-policy#/properties/onEvaluationFailure"
+      ],
+      "origin": "referenceDerived",
+      "note": "Deny-by-default and fail-closed, taken from the reference tool policy. Single-valued, so failing open has no representation: in the reference these were conventions enforced by prose, which is what the source analysis flagged as procedural rather than programmatic enforcement."
+    },
+    {
+      "name": "policyConflictResolution",
+      "values": [
+        "denyWins"
+      ],
+      "appliesTo": [
+        "tool-policy#/properties/conflictResolution"
+      ],
+      "origin": "referenceDerived",
+      "note": "Deny-wins from the reference policy, made structural for the same reason as policyDecision."
+    },
+    {
+      "name": "consumerQueryOrigin",
+      "values": [
+        "consumerExtension"
+      ],
+      "appliesTo": [
+        "workload-extension#/$defs/consumerQuery/properties/origin"
+      ],
+      "origin": "frameworkOriginated",
+      "note": "Deliberately narrower than queryOrigin. A query declared inside a workload extension cannot claim to be a framework default, because the one value that would let it is absent."
+    },
+    {
+      "name": "scheduleCadence",
+      "values": [
+        "manual",
+        "hourly",
+        "daily",
+        "weekly"
+      ],
+      "appliesTo": [
+        "workload-extension#/properties/schedule/properties/cadence"
+      ],
+      "origin": "frameworkOriginated",
+      "note": "A closed set rather than a free-form expression. A schedule string would be a payload field the framework cannot reason about, and an agent-created schedule is one of the denied categories."
+    },
+    {
+      "name": "reportSection",
+      "values": [
+        "summary",
+        "findings",
+        "evidence",
+        "readiness",
+        "limitations"
+      ],
+      "appliesTo": [
+        "workload-extension#/properties/reportShaping/properties/sections/items"
+      ],
+      "origin": "frameworkOriginated",
+      "note": "Shapes which sections a report carries. The reference report contract carried branding and audience, which the exclusion list forbids; only the structural part generalises."
+    },
+    {
+      "name": "vocabularyOrigin",
+      "values": [
+        "referenceDerived",
+        "frameworkOriginated"
+      ],
+      "appliesTo": [
+        "vocabulary#/$defs/origin"
+      ],
+      "origin": "frameworkOriginated",
+      "note": "Introduced by this register to describe itself. The register governs every enumerated set in contracts/schemas/, and its own schema defines one, so excluding it would carve out the single exception that nobody would notice. There is deliberately no unknown member: a set whose provenance was never established is a gap, and admitting a value for it would let the gap pass as a recorded answer."
+    }
+  ]
+}
