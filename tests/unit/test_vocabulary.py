@@ -52,8 +52,8 @@ REFERENCE_TOKENS = [
 
 # What the sweep is expected to find. Present so that a discovery bug which returns
 # nothing fails loudly instead of satisfying every "for each found" assertion.
-EXPECTED_ENUM_OCCURRENCES = 47
-EXPECTED_DISTINCT_VALUE_SETS = 34
+EXPECTED_ENUM_OCCURRENCES = 51
+EXPECTED_DISTINCT_VALUE_SETS = 38
 
 
 def load(path):

@@ -82,6 +82,11 @@ FIXTURES = {
             "maxResultSetRows": 1000,
             "perQueryTimeoutSeconds": 30,
         },
+        "retryPolicy": {
+            "maxAttempts": 3,
+            "backoff": "exponential",
+            "initialDelaySeconds": 2,
+        },
     },
     "capability-mapping": {
         "schemaVersion": "1.0.0",
@@ -212,6 +217,8 @@ FIXTURES = {
         "idempotencyKey": "<IDEMPOTENCY_KEY>",
         "turn": 1,
         "maxTurns": 5,
+        "attempt": 1,
+        "maxAttempts": 3,
         "autonomyLevel": "readOnly",
         "executionState": "running",
     },

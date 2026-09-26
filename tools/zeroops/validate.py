@@ -31,6 +31,7 @@ import os
 import re
 import sys
 
+from zeroops import failure_modes
 from zeroops import obligations
 
 # JSON Schema treats "format" as an annotation by default, so a malformed
@@ -348,6 +349,83 @@ def _handoff_record_semantics(instance):
                 "has already passed the bound meant to stop it",
             )
         )
+
+    attempt = instance.get("attempt")
+    max_attempts = instance.get("maxAttempts")
+    if (
+        isinstance(attempt, int)
+        and isinstance(max_attempts, int)
+        and attempt > max_attempts
+    ):
+        findings.append(
+            Finding(
+                "/attempt",
+                "exceeds maxAttempts, so the handoff records a retry the "
+                "declared ceiling should have prevented",
+            )
+        )
+
+    reason = instance.get("terminationReason")
+    state = instance.get("executionState")
+    if isinstance(reason, str):
+        expected = failure_modes.state_for(reason)
+        if expected is None:
+            findings.append(
+                Finding(
+                    "/terminationReason",
+                    "names no failure class the contract defines, so no "
+                    "execution state can be derived from it",
+                )
+            )
+        elif isinstance(state, str) and state != expected:
+            findings.append(
+                Finding(
+                    "/executionState",
+                    "does not match the state its terminationReason produces, "
+                    "so the record disagrees with itself about what happened",
+                )
+            )
+        if (
+            isinstance(attempt, int)
+            and attempt > 1
+            and not failure_modes.retryable(reason)
+        ):
+            findings.append(
+                Finding(
+                    "/attempt",
+                    "records a retry of a termination reason the contract "
+                    "declares unretryable, which spends a budget that a "
+                    "transient failure would have needed",
+                )
+            )
+
+    started_at = instance.get("startedAt")
+    completed_at = instance.get("completedAt")
+    malformed = False
+    for pointer, value in (("/startedAt", started_at), ("/completedAt", completed_at)):
+        if isinstance(value, str) and not UTC_TIMESTAMP.match(value):
+            malformed = True
+            findings.append(
+                Finding(
+                    pointer,
+                    "is not a UTC RFC 3339 timestamp, so no ordering can be "
+                    "established from it",
+                )
+            )
+    if (
+        not malformed
+        and isinstance(started_at, str)
+        and isinstance(completed_at, str)
+        and completed_at < started_at
+    ):
+        findings.append(
+            Finding(
+                "/completedAt",
+                "precedes startedAt, so the record describes an execution "
+                "that finished before it began",
+            )
+        )
+
     return findings
 
 

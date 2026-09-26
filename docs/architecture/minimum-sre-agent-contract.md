@@ -261,6 +261,54 @@ tolerate: a customer hitting an unexplained error in the first session does not 
 win, they get an abandoned evaluation. The reference suite's fail-closed posture applies —
 an unresolvable condition is reported and excluded, never silently included.
 
+#### Failure class to execution state
+
+FR-07 requires that every failure class map to a defined state value. The mapping is total
+in both directions: every bullet in the specification's *Failure Modes* section appears
+below, and every terminal state other than `completed` is produced by at least one class. A
+state no class can reach would be a value the contract defines and nothing can ever set.
+
+| Failure class | Execution state | Retryable | Source |
+|---|---|---|---|
+| `discoveryProviderUnavailable` | `failed` | Yes | Failure Modes |
+| `deploymentPartiallyApplied` | `incomplete` | Yes | Failure Modes |
+| `roleAssignmentNotYetEffective` | `incomplete` | Yes | Failure Modes |
+| `dataSourceUnreachable` | `incomplete` | Yes | Failure Modes |
+| `concurrentScopeConflict` | `failed` | No | Failure Modes |
+| `frameworkVersionIncompatible` | `failed` | No | Failure Modes |
+| `executionLimitReached` | `incomplete` | No | Edge Cases |
+| `accessNotGranted` | `accessDenied` | No | Failure Modes, derived distinction |
+
+The consistency-model bullet maps to no state. It records which operations are eventually
+consistent and states that contract validation is immediate, which is a property of the
+system rather than an outcome a run can reach. It is listed in the registry with that reason
+rather than omitted, because a bullet absent from the registry and a bullet deliberately
+excluded from it are otherwise the same thing.
+
+Two distinctions carry weight. `incomplete` is not a weaker `failed`: every reason mapping to
+it left partial work that remains valid, and calling a partly applied deployment failed would
+imply nothing was applied. `roleAssignmentNotYetEffective` and `accessNotGranted` are separate
+because the specification requires validation distinguish permission that is still propagating
+from permission that does not exist; collapsing them turns a deployment that is still settling
+into one that looks misconfigured.
+
+The mapping is enforced by `contracts/schemas/handoff-record.schema.json` rather than stated
+here alone. A record whose `executionState` is `incomplete` admits only the four reasons that
+produce it, a `completed` record cannot carry a termination reason at all, and only a
+`completed` record may carry a `completedAt`. `tools/zeroops/failure_modes.py` holds the
+registry, and a test parses the specification so that a bullet added there and never
+classified fails rather than drifts.
+
+#### Incomplete execution
+
+An incomplete execution is represented by three things together, not by a flag. The
+`executionState` is `incomplete`, a `terminationReason` from the incomplete subset says which
+limit or gap stopped it, and `completedAt` is absent. The absence is load-bearing: a
+substituted end time would let an incomplete run join, sort and report exactly like one that
+finished. At the entry level the counterpart is an evidence entry with `observationState` set
+to `unobserved` and an `unobservedReason`, which carries no content hash at all rather than a
+zero digest. No value is extrapolated to fill either gap.
+
 ### 17. Retry and timeout behavior — Recommended
 
 The reference suite declares execution limits within its tool policy, so there is precedent.
@@ -269,6 +317,22 @@ Recommended rather than Required because sensible framework-level defaults make 
 declaration unnecessary for a first result, while production deployments against rate-limited
 data sources will need to tune it. Declaring nothing must be safe, so defaults are
 conservative and fail closed on exhaustion rather than retrying unbounded.
+
+Timeout is declared in the tool policy as `executionLimits`, covering tool-call count,
+wall-clock duration, result-set size and per-query timeout, as FR-53 enumerates. Retry is
+declared alongside it as `retryPolicy`, carrying an attempt ceiling and a backoff strategy.
+
+Which failure classes are retryable is not declared there and cannot be. Retryability is a
+property of the class, fixed by the table above, because a policy able to mark a denied grant
+retryable would turn a settled finding into a loop. The handoff record carries `attempt` and
+`maxAttempts` so that a record can be shown to have respected a ceiling, and a record whose
+attempt exceeds one while naming an unretryable reason is rejected by the validator: it spends
+a budget that a genuinely transient failure would have needed.
+
+`attempt` is separate from `turn` on purpose. A turn advances the work and an attempt repeats
+it, so collapsing the two would make a retry of turn 3 indistinguishable from turn 4, which is
+the difference between repeating an observation and making a new one. The idempotency key is
+what lets a retried handoff be recognised as the same logical work.
 
 ### 18. Configuration schema — Required
 
