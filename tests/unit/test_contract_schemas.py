@@ -730,7 +730,7 @@ class TheHandoffRecordPinsAutonomy(unittest.TestCase):
     def test_incomplete_and_failed_are_distinct_states(self):
         schema = read_json(os.path.join(SCHEMA_DIR, "handoff-record.schema.json"))
         states = schema["properties"]["executionState"]["enum"]
-        for expected in ("incomplete", "failed", "deniedAccess"):
+        for expected in ("incomplete", "failed", "accessDenied"):
             self.assertIn(expected, states)
 
     def test_an_identifier_cannot_smuggle_a_resource_path(self):

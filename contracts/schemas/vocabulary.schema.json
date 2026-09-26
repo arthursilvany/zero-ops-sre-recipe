@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zero-ops-sre-recipe.contracts/schemas/vocabulary.schema.json",
+  "title": "Vocabulary",
+  "description": "The canonical English vocabulary and the provenance of each value set (FR-03, FR-04, NFR-03). Every enumerated value set defined anywhere in contracts/schemas/ appears here exactly once. Totality is the point: an omission and a deliberate decision look identical from outside unless every member of the governed set is present, so an entry that renames nothing still has to say so in its note. The reference values recorded here are provenance data, not identifiers; nothing in the framework may be named after them (CON-01).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "description", "entries"],
+  "properties": {
+    "schemaVersion": { "$ref": "#/$defs/schemaVersion" },
+
+    "description": {
+      "type": "string",
+      "minLength": 40,
+      "maxLength": 1000,
+      "description": "What this register governs. Required rather than optional, because a register that does not state its own scope cannot be checked for completeness against that scope."
+    },
+
+    "entries": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "description": "One entry per distinct enumerated concept. Keyed by concept rather than by value set: three unrelated concepts happen to share the single value readOnly, and collapsing them would erase the distinction between an agent access level, a connector access mode and a handoff autonomy level.",
+      "items": { "$ref": "#/$defs/vocabularyEntry" }
+    }
+  },
+
+  "$defs": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "The version of this schema the instance conforms to (FR-05, FR-29)."
+    },
+
+    "conceptName": {
+      "type": "string",
+      "pattern": "^[a-z][A-Za-z0-9]{2,47}$",
+      "description": "The concept the value set names, in lowerCamelCase. English by construction: the pattern admits no accented character and no underscore, so an upper-case reference token cannot be used as a concept name even by accident (FR-03, CON-01)."
+    },
+
+    "canonicalValue": {
+      "type": "string",
+      "pattern": "^[a-z][A-Za-z0-9]{1,47}$",
+      "description": "A value as it appears in a schema enum. Same construction as conceptName, for the same reason: the shipped vocabulary is English and the pattern is what makes that enforceable rather than merely stated."
+    },
+
+    "referenceValue": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_]{1,47}$",
+      "description": "The value as it appeared in the analysed reference material, recorded verbatim so the rename is auditable (FR-03). This is the one place in the contracts where such a token may appear, and it appears as data rather than as an identifier. No example is given here on purpose: naming one would put the token in a second file and make the leak check unenforceable. The upper-case shape is deliberate, because it cannot be mistaken for a value the framework emits."
+    },
+
+    "schemaPointer": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{1,62}[a-z0-9]#(/[A-Za-z0-9$_.-]{1,64}){1,8}$",
+      "description": "Where the value set is defined, as schema-name#/json/pointer. The schema name carries no .schema.json suffix and no path, so an entry cannot be made to point outside contracts/schemas/. Exact pointers rather than schema names are what let the drift check compare this register against the schema text in both directions."
+    },
+
+    "origin": {
+      "type": "string",
+      "enum": ["referenceDerived", "frameworkOriginated"],
+      "description": "Whether the value set descends from the analysed reference material or was introduced by this framework. Two values and no third: a set whose provenance is unknown is not a recorded provenance, and admitting an unknown option would let that gap pass as an answer."
+    },
+
+    "referenceValueMapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "referenceValue"],
+      "properties": {
+        "value": { "$ref": "#/$defs/canonicalValue" },
+        "referenceValue": { "$ref": "#/$defs/referenceValue" }
+      },
+      "description": "One rename, as a pair. Expressed as a list of pairs rather than a map because a map's keys cannot be constrained while still forbidding unknown properties, and an unconstrained key is exactly where a reference token would reappear as an identifier."
+    },
+
+    "vocabularyEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "values", "appliesTo", "origin", "note"],
+      "properties": {
+        "name": { "$ref": "#/$defs/conceptName" },
+
+        "values": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "maxItems": 40,
+          "description": "The canonical values, in the order the schema declares them. Compared verbatim against the schema enum, so a reordering or a silent addition is a failure rather than a difference nobody looks at.",
+          "items": { "$ref": "#/$defs/canonicalValue" }
+        },
+
+        "appliesTo": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "maxItems": 20,
+          "description": "Every location that defines this value set. A concept defined in five schemas lists five pointers, which turns cross-schema agreement into a checked property instead of a convention.",
+          "items": { "$ref": "#/$defs/schemaPointer" }
+        },
+
+        "origin": { "$ref": "#/$defs/origin" },
+
+        "referenceValues": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "maxItems": 40,
+          "description": "The renames, where there are any. Absent when the reference material had no counterpart value, which the note must then explain: a reference-derived set with no mapping and no explanation is indistinguishable from one nobody checked.",
+          "items": { "$ref": "#/$defs/referenceValueMapping" }
+        },
+
+        "note": {
+          "type": "string",
+          "minLength": 60,
+          "maxLength": 1500,
+          "description": "Why this set has the members it has, and why any reference value was renamed, generalised or dropped. The minimum length is load-bearing: it is what stops the note degrading into a restatement of the name, which would satisfy a presence check while recording nothing."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "origin": { "const": "frameworkOriginated" } },
+            "required": ["origin"]
+          },
+          "then": {
+            "not": { "required": ["referenceValues"] },
+            "description": "A set the framework invented cannot also claim a reference ancestry. Making the combination inexpressible removes the cheapest way to fake provenance, which is to assert it."
+          }
+        }
+      ]
+    }
+  }
+}

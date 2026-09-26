@@ -9,13 +9,34 @@ standard, not a prototype standard.
 
 1. **English only.** All repository content — documentation, source code, comments,
    configuration names, examples, tests, and user-facing text — must be written in
-   English.
+   English. Adding an enumerated value set to a schema also means registering it in
+   [`contracts/vocabulary/vocabulary.json`](contracts/vocabulary/vocabulary.json); see
+   [Vocabulary and provenance](#vocabulary-and-provenance).
 2. **No secrets, no customer data.** See [SECURITY.md](SECURITY.md). Use placeholders
    such as `<SUBSCRIPTION_ID>` and `<TENANT_ID>`.
 3. **The reusable core stays generic.** Workload-specific and customer-specific content
    belongs in extension points, never in the core.
 4. **No purposeless scaffolding.** Do not add empty folders or placeholder files without
    a defined purpose.
+
+## Vocabulary and provenance
+
+Every enumerated value set defined in `contracts/schemas/` is registered exactly once in
+`contracts/vocabulary/vocabulary.json`, with the location or locations that define it,
+whether it descends from the analysed reference material or was introduced here, and a
+note explaining the membership. The register is total on purpose: an entry that renames
+nothing still has to say so, because an omission and a deliberate decision are otherwise
+indistinguishable.
+
+The reference material used Portuguese values for several states. Those originals are
+recorded as provenance data, in one place and in one role. A reference token may appear
+as a `referenceValue`, and nowhere else in `contracts/` or `examples/` — never as a
+property name, a concept name, or an enumerated value. The schema patterns admit no
+underscore and no leading upper-case character, so the prohibited form cannot be written
+even by accident, and a test asserts it does not leak.
+
+Adding an enum without registering it fails `tests/unit/test_vocabulary.py`, as does a
+register entry that drifts from the schema text in either direction.
 
 ## The DevSquad SDD flow is mandatory
 
