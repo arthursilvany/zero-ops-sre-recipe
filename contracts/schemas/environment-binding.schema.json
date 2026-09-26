@@ -71,8 +71,9 @@
   "$defs": {
     "schemaVersion": {
       "type": "string",
+      "const": "1.0.0",
       "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
-      "description": "The version of this schema the instance conforms to (FR-05, FR-29)."
+      "description": "The version of this schema the instance conforms to (FR-05, FR-29). Pinned with const rather than left to the pattern: without it an instance could declare any version at all and still validate, which made the declaration decorative (NFR-21)."
     },
     "identifier": {
       "type": "string",

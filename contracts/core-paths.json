@@ -45,6 +45,11 @@
         "purpose": "This declaration. Input to the SC-01 diff check (FR-61)."
       },
       {
+        "path": "contracts/schema-versions.json",
+        "status": "present",
+        "purpose": "What version every schema in contracts/schemas/ is, the content digest it had when that version was published, and what changed at each version. The digest is what makes NFR-21 enforceable: a schema edited without a version bump fails the build instead of shipping silently."
+      },
+      {
         "path": "contracts/vocabulary/",
         "status": "present",
         "purpose": "English identifiers with recorded provenance (FR-03)."
