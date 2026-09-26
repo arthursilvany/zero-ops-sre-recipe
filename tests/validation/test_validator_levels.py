@@ -493,7 +493,14 @@ class CommandSurface(unittest.TestCase):
     def test_a_full_set_validates_end_to_end(self):
         result = self.run_cli("validate", TWO_ENVIRONMENTS)
         self.assertEqual(0, result.returncode, result.stderr)
-        self.assertEqual(6, result.stdout.count("Configuration valid:"))
+        expected = len(
+            [n for n in os.listdir(TWO_ENVIRONMENTS) if n.endswith(".json")]
+        )
+        # Guarded rather than hardcoded: a literal count silently stops
+        # describing the set the moment an artifact is added, and a guard of
+        # zero would make the comparison below pass over an empty directory.
+        self.assertGreaterEqual(expected, 7)
+        self.assertEqual(expected, result.stdout.count("Configuration valid:"))
 
     def test_an_unrecognised_filename_is_a_usage_error_not_a_pass(self):
         import tempfile

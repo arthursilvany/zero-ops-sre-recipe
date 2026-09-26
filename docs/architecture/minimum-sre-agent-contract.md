@@ -345,6 +345,31 @@ no credentials. That credential-free local validation is also what makes the qui
 safe to attempt: a customer can be certain their configuration is valid before touching
 their environment.
 
+#### A directory is a configuration set
+
+A configuration is a set of artifacts, not a file. Each member validates on its own, and a
+set whose members all validate can still be incoherent, because no per-artifact rule can
+reach another document. A framework configuration naming a tool policy that no shipped file
+defines is the concrete case: it validated for as long as both examples existed.
+
+Every reference-shaped property in `contracts/schemas/` is therefore classified in
+`tools/zeroops/references.py`, which is total. A property is resolved in exactly one of
+three places, and a property with no entry fails the suite rather than going unchecked.
+
+| Resolution | Meaning | Example |
+|---|---|---|
+| `withinDocument` | The name is defined in the same document, and the per-artifact semantic rule already resolves it | `framework-config.subscriptionRef` |
+| `acrossSet` | The name is defined by another artifact in the same directory | `framework-config.toolPolicyRef` |
+| `runtimeProduced` | The reference exists only in an emitted artifact, so a configuration set has nothing to resolve it against | `assessment-result.evidenceRefs` |
+
+The set pass is gated on every member validating structurally, for the same reason the
+semantic pass is gated on one document validating structurally. A malformed connector still
+defines the name its bindings point at, but nothing can read it, so resolving around it
+would report every binding as broken and bury the one fault that is real.
+
+A directory holding one artifact is still a set. Checking is not skipped for it: that is
+precisely the case where nothing else is present to define the name being referenced.
+
 ### 19. Deployment assets — Required
 
 ADR-0002 settles the form: Bicep as primary, composed from pinned upstream modules rather

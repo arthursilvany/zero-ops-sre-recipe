@@ -1,0 +1,56 @@
+{
+  "schemaVersion": "1.0.0",
+  "name": "read-only-baseline",
+  "description": "The policy both environment bindings inherit. Declared once, like the workload: a per-environment copy would be a second place for the read-only posture to drift (FR-36). Defence in depth only; the guarantee is the RBAC grant (SEC-001).",
+  "defaultDecision": "deny",
+  "conflictResolution": "denyWins",
+  "onEvaluationFailure": "deny",
+  "allowedCapabilityClasses": [
+    "readResourceMetadata",
+    "readResourceConfiguration",
+    "readMetrics",
+    "readLogs",
+    "readAlerts"
+  ],
+  "denyRules": [
+    {
+      "category": "write",
+      "justification": "v1 observes and never mutates. Denied here as well as absent from the allow list, so removing the allow list does not remove the prohibition."
+    },
+    {
+      "category": "destructiveOperation",
+      "justification": "No deletion, scaling or restart. An operation that cannot be undone must not be reachable from a policy intended to be defence in depth."
+    },
+    {
+      "category": "arbitraryExecution",
+      "justification": "No command or query is constructed at run time. Only a reviewed, catalogued query can run, which is what keeps the surface reviewable."
+    },
+    {
+      "category": "secretsAccess",
+      "justification": "No credential is read. Every sensitive value is an external reference resolved through the agent's identity, never a value it retrieves and holds."
+    },
+    {
+      "category": "selfApproval",
+      "justification": "A single principal must not both propose and authorise, which is the separation production raises to two approvers."
+    },
+    {
+      "category": "externalPublication",
+      "justification": "No finding leaves the environment. Publication is how an observation about a customer estate becomes a disclosure."
+    },
+    {
+      "category": "agentCreatedSchedule",
+      "justification": "The agent does not create recurring work. A schedule it authored would outlive the execution that was reviewed."
+    }
+  ],
+  "retryPolicy": {
+    "maxAttempts": 3,
+    "backoff": "exponential",
+    "initialDelaySeconds": 2
+  },
+  "executionLimits": {
+    "maxToolCalls": 200,
+    "maxWallClockSeconds": 900,
+    "maxResultSetRows": 1000,
+    "perQueryTimeoutSeconds": 30
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "1.0.0",
+  "name": "minimal-observer",
+  "description": "The least an agent definition can say and still be complete. Capability classes only; the tool identifiers of a pinned runtime version belong to the binding layer (CON-03, ADR-0001).",
+  "targetScopeRef": "bb5f683d70e0a3839a31939f681e568614d1ce963d491b17eba07ba1061a3f0c",
+  "accessLevel": "readOnly",
+  "actionMode": "observe",
+  "modelProvider": {
+    "kind": "azureOpenAi",
+    "deploymentRef": "model-deployment"
+  },
+  "consumptionLimit": {
+    "maxToolCalls": 100,
+    "maxWallClockSeconds": 600
+  },
+  "capabilities": [
+    "readResourceMetadata",
+    "readMetrics",
+    "readLogs",
+    "readAlerts"
+  ]
+}
