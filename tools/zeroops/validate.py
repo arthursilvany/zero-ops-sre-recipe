@@ -33,6 +33,7 @@ import sys
 
 from zeroops import failure_modes
 from zeroops import obligations
+from zeroops import references
 
 # JSON Schema treats "format" as an annotation by default, so a malformed
 # timestamp would pass structural validation. The semantic comparison below
@@ -557,12 +558,84 @@ def validate(target, schema_path=None):
 
 
 def validate_set(target, schema_path=None):
-    """Return [(artifact, findings, warnings)] for every artifact in a target."""
+    """Return [(artifact, findings, warnings)] for every artifact in a target.
+
+    Per-artifact checks run first, then the set-level reference resolution.
+    An artifact that failed structurally is excluded from the set pass: a
+    document whose shape is wrong cannot meaningfully define or resolve a name.
+    """
     results = []
+    loaded = []
+    incomplete = False
     for artifact in resolve_artifacts(target):
+        kind = kind_of(artifact)
         findings, warnings = validate_artifact(artifact, schema_path)
-        results.append((artifact, findings, warnings))
-    return results
+        if findings:
+            incomplete = True
+        else:
+            loaded.append((artifact, kind, load_json(artifact, "configuration")))
+        results.append([artifact, findings, warnings])
+
+    # The set pass is gated on the whole set being well-formed, for the same
+    # reason the semantic pass is gated on one document being well-formed. A
+    # malformed connector still defines the name its bindings point at, but
+    # nothing here can read it, so resolving around it would report every
+    # binding as broken and bury the one fault that is real.
+    by_artifact = {}
+    if not incomplete:
+        for artifact, finding in set_findings(loaded):
+            by_artifact.setdefault(artifact, []).append(finding)
+
+    for result in results:
+        extra = by_artifact.get(result[0])
+        if extra:
+            result[1] = result[1] + extra
+            result[2] = []
+
+    return [tuple(result) for result in results]
+
+
+def set_findings(loaded):
+    """Cross-artifact references, checked once the set is known.
+
+    ``loaded`` is a list of (artifact path, kind, instance). It is passed only
+    when every member of the set validated structurally: see validate_set for
+    why resolving around a malformed member is worse than not resolving.
+
+    A set with a single artifact is still a set. Checking is not skipped for
+    it, because a lone framework configuration naming a tool policy is exactly
+    the case where nothing else in the directory can define the name.
+    """
+    findings = []
+    documents = {}
+    for _, kind, instance in loaded:
+        if isinstance(instance, dict):
+            documents.setdefault(kind, []).append(instance)
+
+    for artifact, kind, instance in loaded:
+        if not isinstance(instance, dict):
+            continue
+        for reference in references.for_schema(kind):
+            if reference.resolution != references.ACROSS_SET:
+                continue
+            uses = references.collect(instance, reference.path)
+            if not uses:
+                continue
+            target = reference.target
+            known = references.defined_names(documents, target)
+            for pointer, value in uses:
+                if value in known:
+                    continue
+                if target.kind not in documents:
+                    message = (
+                        "names %s that no artifact in this set defines. "
+                        "No %s.json is present in the set." % (target.label, target.kind)
+                    )
+                else:
+                    message = "names %s that this set does not define" % target.label
+                findings.append((artifact, Finding(pointer, message)))
+
+    return findings
 
 
 def _run_check_core():

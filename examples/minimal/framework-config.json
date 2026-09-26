@@ -55,6 +55,11 @@
         "name": "target-subscription",
         "provider": "environmentVariable",
         "locator": "ZEROOPS_SUBSCRIPTION_ID"
+      },
+      {
+        "name": "model-deployment",
+        "provider": "environmentVariable",
+        "locator": "ZEROOPS_MODEL_DEPLOYMENT"
       }
     ]
   }

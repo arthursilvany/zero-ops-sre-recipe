@@ -1,0 +1,55 @@
+{
+  "schemaVersion": "1.0.0",
+  "name": "read-only-baseline",
+  "description": "The policy the framework configuration names. Declared, not framework-enforced: the read-only guarantee is the RBAC grant Azure Resource Manager enforces, and this layer is defence in depth (SEC-001, FR-53).",
+  "defaultDecision": "deny",
+  "conflictResolution": "denyWins",
+  "onEvaluationFailure": "deny",
+  "allowedCapabilityClasses": [
+    "readResourceMetadata",
+    "readMetrics",
+    "readLogs",
+    "readAlerts"
+  ],
+  "denyRules": [
+    {
+      "category": "write",
+      "justification": "v1 observes and never mutates. Denied here as well as absent from the allow list, so removing the allow list does not remove the prohibition."
+    },
+    {
+      "category": "destructiveOperation",
+      "justification": "No deletion, scaling or restart. An operation that cannot be undone must not be reachable from a policy intended to be defence in depth."
+    },
+    {
+      "category": "arbitraryExecution",
+      "justification": "No command or query is constructed at run time. Only a reviewed, catalogued query can run, which is what makes the surface reviewable."
+    },
+    {
+      "category": "secretsAccess",
+      "justification": "No credential is read. Every sensitive value is an external reference the agent resolves through its identity, never a value it retrieves and holds."
+    },
+    {
+      "category": "selfApproval",
+      "justification": "A single principal must not both propose and authorise. The approval ledger exists to record that separation."
+    },
+    {
+      "category": "externalPublication",
+      "justification": "No finding leaves the environment. Publication is how an observation about a customer estate becomes a disclosure."
+    },
+    {
+      "category": "agentCreatedSchedule",
+      "justification": "The agent does not create recurring work. A schedule it authored would outlive the execution that was reviewed."
+    }
+  ],
+  "retryPolicy": {
+    "maxAttempts": 3,
+    "backoff": "exponential",
+    "initialDelaySeconds": 2
+  },
+  "executionLimits": {
+    "maxToolCalls": 100,
+    "maxWallClockSeconds": 600,
+    "maxResultSetRows": 500,
+    "perQueryTimeoutSeconds": 30
+  }
+}
