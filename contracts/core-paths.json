@@ -61,9 +61,8 @@
       },
       {
         "path": "core/policy/",
-        "status": "planned",
-        "purpose": "Tool policy expressed in capability classes, runtime-agnostic.",
-        "materialisedBy": "T2.03"
+        "status": "present",
+        "purpose": "Tool policy expressed in capability classes, runtime-agnostic. Also the ceiling every emitted policy is measured against."
       },
       {
         "path": "core/evidence/",
