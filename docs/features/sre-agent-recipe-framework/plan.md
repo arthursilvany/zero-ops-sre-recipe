@@ -238,9 +238,14 @@ Definition of Done in `prd.md` is satisfied or its gaps are explicitly recorded.
 
 ## Commands
 
-No command exists yet; this repository contains documentation only. The commands below are
-the ones the plan commits to creating, each attributed to the work item that creates it.
-They are recorded here so that NFR-13's consistency check has a target.
+Each command below is attributed to the work item that creates it, so that NFR-13's
+consistency check has a target. A command still carrying a `[TBD]` marker does not exist;
+the marker is removed by the named work item in the same pull request that creates the
+command.
+
+Commands that exist are documented for use in [`docs/commands.md`](../../commands.md).
+This section records the commitment and who discharges it; that page records how to run
+what has been discharged.
 
 ### Documentation lint — exists today
 
@@ -251,13 +256,18 @@ npx --yes markdownlint-cli2 "docs/**/*.md" "*.md"
 ### Offline validation — created by S3-06, S3-12
 
 ```powershell
-[TBD until S3-12] zeroops validate --config examples/minimal/
+.\bin\zeroops.ps1 validate examples\minimal\
 ```
+
+Delivered with a positional target rather than the `--config` flag this section
+provisionally recorded. The command accepts a directory or a single artifact, and
+`--config` would have implied there is one configuration file when a configuration is a
+directory of artifacts that has to resolve as a set.
 
 ### Local tests, credential-free — created by S3-12
 
 ```powershell
-[TBD until S3-12] zeroops test --local
+.\bin\zeroops.ps1 test --local
 ```
 
 ### Negative suite, release gate — created by S3-09
@@ -293,7 +303,8 @@ npx --yes markdownlint-cli2 "docs/**/*.md" "*.md"
 [TBD until S5-07] zeroops cleanup --verify --config <CONFIG_FILE>
 ```
 
-The `zeroops` name is provisional and is confirmed when S3-12 lands. Every `[TBD]` marker
+The `zeroops` name is confirmed. S3-12 has landed, the shims in `bin/` carry it on both
+platforms, and it is the name `docs/commands.md` documents. Every remaining `[TBD]` marker
 is removed by the work item named beside it, in the same pull request that creates the
 command.
 

@@ -134,13 +134,36 @@ def pointer_of(parts):
     return "/" + "/".join(out) if out else ""
 
 
+def allowed_properties_hint(subschema):
+    """Name the properties the failing subschema accepts, or say nothing.
+
+    An empty string rather than a placeholder when the set is unavailable:
+    a schema that composes with allOf or $ref may not carry `properties` at
+    the level the error was raised, and "allowed: (unknown)" would read as a
+    statement about the schema instead of about this function's reach.
+
+    Property names are schema content, never instance content, so this cannot
+    echo a supplied value (SEC-017).
+    """
+    if not isinstance(subschema, dict):
+        return ""
+    properties = subschema.get("properties")
+    if not isinstance(properties, dict) or not properties:
+        return ""
+    return ". Allowed here: %s" % ", ".join(sorted(properties))
+
+
 def structural_findings(instance, schema):
     try:
         from jsonschema import Draft202012Validator
     except ImportError:
         raise ValidationError(
-            "jsonschema is not installed. Install the tooling package first:\n"
-            "    python -m pip install -e tools\n"
+            "jsonschema is not installed. Install the pinned closure:\n"
+            "    python -m pip install --require-hashes --only-binary=:all: "
+            "-r tools/requirements.lock\n"
+            "Both flags are part of the control: --require-hashes refuses "
+            "anything not listed, and --only-binary refuses a source "
+            "distribution, which would run a build at install time.\n"
             "Refusing to report success without having validated anything."
         )
 
@@ -154,7 +177,13 @@ def structural_findings(instance, schema):
         if keyword == "additionalProperties":
             # Name the unknown property so the author can find it; a typo is the
             # common cause and an unnamed rejection is unactionable (FR-27).
-            message = "unknown property rejected: %s" % error.message
+            # Name the accepted set too: the usual cause is a misspelling, and
+            # knowing the property is wrong without knowing what was expected
+            # leaves the author guessing at the schema.
+            message = "unknown property rejected: %s%s" % (
+                error.message,
+                allowed_properties_hint(error.schema),
+            )
         elif keyword == "required":
             message = error.message
         else:
@@ -742,6 +771,23 @@ def _run_hash(args):
         return EXIT_INVALID
 
 
+def _run_test(args):
+    from zeroops import localtest
+
+    if not args.local:
+        sys.stderr.write(
+            "error: 'zeroops test' requires --local. There is one test mode "
+            "today and it is the offline one; naming it keeps a later mode "
+            "that does reach a subscription from being run by accident.\n"
+        )
+        return EXIT_USAGE
+    try:
+        return localtest.run_local(args.pattern)
+    except localtest.LocalTestError as exc:
+        sys.stderr.write("error: %s\n" % exc)
+        return EXIT_USAGE
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(
         prog="zeroops",
@@ -777,6 +823,26 @@ def main(argv=None):
         help="Check the core path declaration against the repository (FR-04, FR-61).",
     )
 
+    test_parser = subparsers.add_parser(
+        "test",
+        help="Run this repository's offline suite with no credentials and no "
+        "network (NFR-12).",
+    )
+    test_parser.add_argument(
+        "--local",
+        action="store_true",
+        help=(
+            "Required. Spelled out rather than implied, so that a future "
+            "command that does reach a subscription cannot be reached by "
+            "typing 'zeroops test' and forgetting which one it is."
+        ),
+    )
+    test_parser.add_argument(
+        "--pattern",
+        default="test_*.py",
+        help="Discovery pattern. Defaults to test_*.py.",
+    )
+
     hash_parser = subparsers.add_parser(
         "hash",
         help="Print the canonical SHA-256 of a JSON document (FR-23).",
@@ -804,6 +870,9 @@ def main(argv=None):
 
     if args.command == "check-core":
         return _run_check_core()
+
+    if args.command == "test":
+        return _run_test(args)
 
     if args.command == "hash":
         return _run_hash(args)
