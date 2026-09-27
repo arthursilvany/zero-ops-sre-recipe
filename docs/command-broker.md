@@ -1,0 +1,68 @@
+# The read-only command broker
+
+Every Azure invocation issued by the core and the wizard passes through one
+function in `tools/zeroops/broker.py`. This page exists so the allow-list is
+reviewable without reading Python, and so the reasons for each entry survive
+the people who wrote them.
+
+The broker is defence in depth. The read-only guarantee is the role
+assignment enforced by Azure Resource Manager. A bug in the broker is a bug
+in a second layer, not the failure of the first.
+
+## Allowed verbs
+
+A verb is the last word before the first option. In
+`az role assignment list --scope /subscriptions/...` the verb is `list`.
+
+| Verb | Why it is allowed |
+|------|-------------------|
+| `show` | Read one resource by identifier. No side effect. |
+| `list` | Enumerate resources in a scope. No side effect. |
+| `query` | Resource Graph read, the discovery mechanism ADR-0003 chose. |
+| `version` | Record the CLI version in evidence. Touches no subscription. |
+
+Anything else is refused, including verbs nobody has classified. The refusal
+is decided by this list and never by a list of write verbs. A deny-list would
+permit every verb nobody thought of, and that set is the one worth worrying
+about.
+
+There is a separate list of write verbs. It never decides anything. It exists
+so a refusal can say that `delete` changes state rather than only that it is
+unrecognised.
+
+## What else the broker refuses
+
+| Refused | Reason |
+|---------|--------|
+| A command given as a string | Splitting it would put another shell's quoting rules inside this process. |
+| An empty token | Usually an interpolated value that did not exist. |
+| A token containing `;`, `&`, <code>&#124;</code>, `` ` ``, `$(`, `>`, `<`, a newline or a NUL | No resource identifier contains one, and each is how a token stops being one token. |
+| A program other than `az`, including an absolute path to it | A path is how a call site reaches a different binary while still looking brokered. |
+| `--yes`, `-y`, `--force`, `--no-wait` | A confirmation flag exists because something is about to change. |
+
+## What the broker adds
+
+`--output json` unless the caller named a format, because evidence is
+compared across runs and platforms and the format cannot depend on a local
+configuration file.
+
+`--only-show-errors`, because upgrade notices and deprecation warnings land
+on stderr, end up inside captured evidence, and read as failures.
+
+## Adding a verb
+
+1. Confirm the verb cannot change state. If the documentation is ambiguous,
+   it changes state.
+2. Add it to `READ_ONLY_VERBS` in `tools/zeroops/broker.py` with a reason
+   that says something. A test asserts the reason is not a placeholder.
+3. Add it to `EXPECTED_VERBS` in `tests/unit/test_broker.py`. The two lists
+   are stated separately on purpose: deriving one from the other would make
+   them agree no matter what either said.
+4. Add the row to the table above.
+
+## Bypassing the broker
+
+Calling Azure from `core/` or `wizard/` without going through this module
+fails the build. That check is T2.02 and is not yet implemented; until it is,
+the choke point is a convention rather than a guarantee, and this sentence is
+here so that gap is recorded rather than assumed closed.
