@@ -251,6 +251,36 @@ class RejectionCases(unittest.TestCase):
             self.assertNotIn(marker, message)
             self.assertNotIn(marker, pointer)
 
+    def test_the_rejection_states_the_shape_that_was_expected(self):
+        """Acceptance criterion 4 of US-1, the half that is not about leaking.
+
+        Being told that 'pattern' was not satisfied is a fact about JSON
+        Schema. The pattern itself is the fact about the document. Naming the
+        keyword alone leaves an author opening the schema to find out what
+        was wanted.
+        """
+        def mutate(instance):
+            instance["environments"][0]["subscriptionRef"] = "NOT A VALID REF"
+
+        findings = self.check(mutate)
+        self.assertTrue(findings)
+        message = " ".join(m for _, m in findings)
+        self.assertIn("Expected pattern:", message)
+        self.assertNotIn("NOT A VALID REF", message)
+
+    def test_the_shape_hint_reports_schema_content_only(self):
+        """The control cases for the helper. A composition keyword carries a
+        whole subschema; printing one would dump the schema into a diagnostic
+        that gets pasted into an issue."""
+        self.assertEqual(
+            ". Expected pattern: ^a$", validator.expected_shape_hint("pattern", "^a$")
+        )
+        self.assertEqual(
+            ". Expected enum: a, b", validator.expected_shape_hint("enum", ["a", "b"])
+        )
+        self.assertEqual("", validator.expected_shape_hint("allOf", [{"type": "object"}]))
+        self.assertEqual("", validator.expected_shape_hint("pattern", ""))
+
 
 class CommandLineSurface(unittest.TestCase):
     """The shims forward arguments; the exit code is what callers branch on."""

@@ -134,6 +134,48 @@ def pointer_of(parts):
     return "/" + "/".join(out) if out else ""
 
 
+SHAPE_KEYWORDS = (
+    "pattern",
+    "format",
+    "enum",
+    "const",
+    "minLength",
+    "maxLength",
+    "minimum",
+    "maximum",
+    "minItems",
+    "maxItems",
+    "type",
+)
+
+
+def expected_shape_hint(keyword, value):
+    """State the shape the schema asked for, using schema content only.
+
+    Naming the keyword alone tells an author that something called 'pattern'
+    was not satisfied, which is a fact about JSON Schema rather than about
+    their document. The constraint itself is what makes the message
+    actionable.
+
+    Restricted to an allow-list of keywords whose value is a literal the
+    schema author wrote. Composition keywords such as allOf carry whole
+    subschemas, and printing one would dump the schema into a diagnostic that
+    gets pasted into an issue.
+
+    A schema value is never instance content, so this cannot echo a supplied
+    value (SEC-017).
+    """
+    if keyword not in SHAPE_KEYWORDS:
+        return ""
+    if isinstance(value, (list, tuple)):
+        rendered = ", ".join(str(item) for item in value)
+    else:
+        rendered = str(value)
+    if not rendered:
+        return ""
+    return ". Expected %s: %s" % (keyword, rendered)
+
+
 def allowed_properties_hint(subschema):
     """Name the properties the failing subschema accepts, or say nothing.
 
@@ -189,7 +231,10 @@ def structural_findings(instance, schema):
         else:
             # Other keywords can quote the failing value. Report the constraint
             # instead, so a locator or identifier never lands in a log.
-            message = "does not satisfy '%s' constraint of the schema" % keyword
+            message = "does not satisfy '%s' constraint of the schema%s" % (
+                keyword,
+                expected_shape_hint(keyword, error.validator_value),
+            )
         findings.append(Finding(pointer, message))
     return findings
 
