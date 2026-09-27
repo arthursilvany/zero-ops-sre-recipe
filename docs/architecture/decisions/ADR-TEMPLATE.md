@@ -63,4 +63,4 @@ Describe the chosen option and link the justification to the ranked priorities a
 
 ## References
 
-* 
+- Links to related decisions, specs or external sources.

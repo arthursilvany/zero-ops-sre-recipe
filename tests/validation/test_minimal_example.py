@@ -26,6 +26,7 @@ if TOOLS_DIR not in sys.path:
     sys.path.insert(0, TOOLS_DIR)
 
 from zeroops import validate as validator  # noqa: E402
+from zeroops import localtest  # noqa: E402
 
 
 def load_minimal():
@@ -123,6 +124,43 @@ class RejectionCases(unittest.TestCase):
         self.assertTrue(
             any("unknownProperty" in m for _, m in findings),
             "rejection did not name the offending property: %r" % findings,
+        )
+
+    def test_the_rejection_names_the_properties_that_were_allowed(self):
+        """Acceptance criterion 2 of US-1.
+
+        The usual cause of this rejection is a misspelling. Being told the
+        property is wrong without being told what was expected leaves the
+        author reading the schema to find a one-character difference.
+        """
+        findings = self.check(lambda i: i.__setitem__("enviroments", []))
+        self.assertTrue(findings)
+        message = " ".join(m for _, m in findings)
+        self.assertIn("Allowed here:", message)
+        for expected in ("environments", "workloads", "schemaVersion"):
+            self.assertIn(expected, message)
+
+    def test_the_allowed_set_is_the_one_for_the_failing_level(self):
+        """Not the top-level set every time. A hint that always listed the
+        root properties would satisfy the assertion above while pointing the
+        author at the wrong object."""
+        def mutate(instance):
+            instance["environments"][0]["typo"] = "x"
+
+        findings = self.check(mutate)
+        message = " ".join(m for p, m in findings if p == "/environments/0")
+        self.assertIn("Allowed here:", message)
+        self.assertNotIn("frameworkDefaults", message)
+
+    def test_the_hint_is_omitted_when_the_property_set_is_unknown(self):
+        """The control case for the helper itself: it must stay silent rather
+        than print a placeholder that reads as a claim about the schema."""
+        self.assertEqual("", validator.allowed_properties_hint({}))
+        self.assertEqual("", validator.allowed_properties_hint({"properties": {}}))
+        self.assertEqual("", validator.allowed_properties_hint(True))
+        self.assertEqual(
+            ". Allowed here: a, b",
+            validator.allowed_properties_hint({"properties": {"b": {}, "a": {}}}),
         )
 
     def test_nested_unknown_property_is_located_by_pointer(self):
@@ -263,6 +301,87 @@ class CommandLineSurface(unittest.TestCase):
         """The fixture CI hands to the shims must stay invalid."""
         result = self.run_cli("validate", INVALID_FIXTURE)
         self.assertEqual(1, result.returncode, result.stdout)
+
+
+class ValidationNeedsNeitherNetworkNorCredentials(unittest.TestCase):
+    """Acceptance criterion 1 of US-1, asserted rather than asserted about.
+
+    The claim is that validation is a local operation. Reading the source and
+    seeing no HTTP call is weaker than running it with sockets refused: an
+    outbound call reached through a library, a proxy probe or a schema `$ref`
+    resolved over the network would all survive a reading and die here.
+
+    Credentials are removed for the same reason. If the validator ever grew a
+    dependency on an ambient login, an environment that happens to be logged
+    in would hide it.
+    """
+
+    PROBE = (
+        "import os, sys\n"
+        "sys.path.insert(0, %(tools)r)\n"
+        "from zeroops import localtest, validate\n"
+        "leaked = localtest.scrubbed_names(os.environ)\n"
+        "if leaked:\n"
+        "    print('LEAKED', leaked)\n"
+        "localtest.forbid_network()\n"
+        "code = validate.main(['validate', %(target)r])\n"
+        "print('EXIT', code)\n"
+    )
+
+    def probe(self, target):
+        env = localtest.scrub_environment(os.environ)
+        env["PYTHONPATH"] = TOOLS_DIR + os.pathsep + env.get("PYTHONPATH", "")
+        script = self.PROBE % {"tools": TOOLS_DIR, "target": target}
+        return subprocess.run(
+            [sys.executable, "-c", script],
+            cwd=REPO_ROOT,
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+
+    def test_the_child_really_runs_without_credentials(self):
+        """If the scrub did not take, the two cases below would be running in
+        an ordinary logged-in environment and proving nothing about
+        credential independence."""
+        result = self.probe(MINIMAL_DIR)
+        self.assertNotIn("LEAKED", result.stdout, result.stdout)
+
+    def test_the_minimal_example_validates_with_sockets_refused(self):
+        result = self.probe(MINIMAL_DIR)
+        self.assertIn("EXIT 0", result.stdout, result.stdout + result.stderr)
+
+    def test_the_probe_would_notice_a_network_call(self):
+        """The control case. Without it, a probe whose socket patch silently
+        failed to apply would report the same clean pass as one that worked,
+        and this class would be testing nothing."""
+        env = dict(os.environ)
+        env["PYTHONPATH"] = TOOLS_DIR + os.pathsep + env.get("PYTHONPATH", "")
+        script = (
+            "import socket, sys\n"
+            "sys.path.insert(0, %r)\n"
+            "from zeroops import localtest\n"
+            "localtest.forbid_network()\n"
+            "try:\n"
+            "    socket.socket().connect(('127.0.0.1', 9))\n"
+            "    print('REACHED')\n"
+            "except OSError as exc:\n"
+            "    print('REFUSED' if 'refused by' in str(exc) else 'OTHER: %%s' %% exc)\n"
+        ) % TOOLS_DIR
+        result = subprocess.run(
+            [sys.executable, "-c", script],
+            cwd=REPO_ROOT,
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        self.assertIn("REFUSED", result.stdout, result.stdout + result.stderr)
+
+    def test_a_rejection_is_still_a_rejection_offline(self):
+        """Exit 0 offline would also be produced by a validator that gave up
+        and reported nothing. The invalid fixture must still be refused."""
+        result = self.probe(INVALID_FIXTURE)
+        self.assertIn("EXIT 1", result.stdout, result.stdout + result.stderr)
 
 
 class PlatformShim(unittest.TestCase):

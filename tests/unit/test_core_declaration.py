@@ -10,8 +10,10 @@ because a gate observed only to pass is not known to be a gate.
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 import unittest
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -369,6 +371,193 @@ class ContributingNamesOnlyRealPaths(unittest.TestCase):
             self.assertNotIn(
                 stale, text, "CONTRIBUTING.md still points contributors at %s" % stale
             )
+
+
+class SchemaIdentityIsUnique(unittest.TestCase):
+    """FR-05, acceptance criterion 5 of US-1.
+
+    The register already checks that every entry resolves to exactly one file.
+    That is about names. This is about identity: two files under different
+    names can still claim the same $id, and then whichever the resolver
+    reaches first defines the schema while the other silently validates
+    nothing.
+    """
+
+    def test_the_repository_declares_more_than_a_handful_of_schemas(self):
+        """A count guard. If the sweep found nothing, every check below would
+        pass by iterating an empty mapping."""
+        mapping = core_paths.schema_ids(REPO_ROOT, core_paths.tracked_files(REPO_ROOT))
+        self.assertGreaterEqual(len(mapping), 18)
+
+    def test_every_schema_in_this_repository_declares_an_id(self):
+        mapping = core_paths.schema_ids(REPO_ROOT, core_paths.tracked_files(REPO_ROOT))
+        self.assertEqual([], sorted(p for p, i in mapping.items() if i is None))
+
+    def test_no_two_schemas_claim_the_same_id(self):
+        mapping = core_paths.schema_ids(REPO_ROOT, core_paths.tracked_files(REPO_ROOT))
+        self.assertEqual({}, core_paths.duplicate_ids(mapping))
+
+    def test_a_repeated_id_is_reported_with_both_paths(self):
+        found = core_paths.duplicate_ids(
+            {"a.schema.json": "urn:x", "b.schema.json": "urn:x", "c.schema.json": "urn:y"}
+        )
+        self.assertEqual({"urn:x": ["a.schema.json", "b.schema.json"]}, found)
+
+    def test_distinct_ids_are_not_reported(self):
+        """The control case. Without it a function that reported everything
+        would satisfy the assertion above."""
+        self.assertEqual(
+            {}, core_paths.duplicate_ids({"a.schema.json": "urn:x", "b.schema.json": "urn:y"})
+        )
+
+    def test_a_missing_id_is_a_problem_rather_than_a_skip(self):
+        root = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, root, True)
+        with open(os.path.join(root, "nameless.schema.json"), "w", encoding="utf-8") as handle:
+            json.dump({"type": "object"}, handle)
+        problems = []
+        core_paths.check_schema_ids(root, ["nameless.schema.json"], problems)
+        self.assertEqual(1, len(problems))
+        self.assertIn("declares no $id", problems[0])
+
+    def test_two_files_sharing_an_id_are_reported(self):
+        root = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, root, True)
+        for name in ("one.schema.json", "two.schema.json"):
+            with open(os.path.join(root, name), "w", encoding="utf-8") as handle:
+                json.dump({"$id": "urn:zeroops:shared"}, handle)
+        problems = []
+        core_paths.check_schema_ids(root, ["one.schema.json", "two.schema.json"], problems)
+        self.assertEqual(1, len(problems))
+        self.assertIn("one.schema.json", problems[0])
+        self.assertIn("two.schema.json", problems[0])
+
+    def test_a_file_that_is_not_a_schema_is_not_inspected(self):
+        mapping = core_paths.schema_ids(REPO_ROOT, ["README.md", "contracts/core-paths.json"])
+        self.assertEqual({}, mapping)
+
+
+class NoDirectoryHoldsOnlyAPlaceholder(unittest.TestCase):
+    """NFR-24, acceptance criterion 10 of US-1.
+
+    A keep-file exists so git will carry an empty directory. A directory that
+    still needs one holds nothing, so the structure it suggests is a promise
+    rather than a fact.
+    """
+
+    def test_this_repository_has_no_placeholder_only_directory(self):
+        problems = []
+        core_paths.check_no_placeholder_directories(
+            core_paths.tracked_files(REPO_ROOT), problems
+        )
+        self.assertEqual([], problems)
+
+    def test_a_directory_holding_only_a_keep_file_is_reported(self):
+        problems = []
+        core_paths.check_no_placeholder_directories(["core/binding/.gitkeep"], problems)
+        self.assertEqual(1, len(problems))
+        self.assertIn("core/binding", problems[0])
+
+    def test_a_keep_file_beside_real_content_is_accepted(self):
+        """The control case: the rule is about emptiness, not about the
+        filename. A check that fired on the name alone would fail here."""
+        problems = []
+        core_paths.check_no_placeholder_directories(
+            ["core/binding/.gitkeep", "core/binding/adapter.md"], problems
+        )
+        self.assertEqual([], problems)
+
+    def test_every_recognised_placeholder_name_is_caught(self):
+        for name in (".gitkeep", ".keep", "KEEP", "placeholder"):
+            with self.subTest(name=name):
+                problems = []
+                core_paths.check_no_placeholder_directories(["somewhere/%s" % name], problems)
+                self.assertEqual(1, len(problems))
+
+
+class TheBindingCounterCheckCanFire(unittest.TestCase):
+    """The second half of acceptance criterion 6 of US-1.
+
+    check_runtime_identifiers asserts two things: no core path names a runtime
+    identifier, and the binding layer names at least one. Only the first is
+    exercised against the real repository, because core/binding/ is still
+    declared planned and the function returns early when the binding layer is
+    empty.
+
+    An early return nothing reaches is indistinguishable from a check that was
+    deleted. These cases run the same function against a synthetic repository
+    where the binding layer does exist, so the counter-check is known to work
+    before the slice that turns it on arrives.
+    """
+
+    TERM = "acme-runtime"
+
+    def declaration(self):
+        return {
+            "categories": {
+                "core": [{"path": "core/policy/", "status": "present", "purpose": "x"}],
+                "binding": [{"path": "core/binding/", "status": "present", "purpose": "x"}],
+            },
+            "runtimeIdentifiers": [{"term": self.TERM, "reason": "synthetic"}],
+            "selfExclusions": [],
+        }
+
+    def root_with(self, contents):
+        root = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, root, True)
+        for relative, text in contents.items():
+            full = os.path.join(root, relative.replace("/", os.sep))
+            os.makedirs(os.path.dirname(full), exist_ok=True)
+            with open(full, "w", encoding="utf-8") as handle:
+                handle.write(text)
+        return root
+
+    def problems_for(self, contents):
+        root = self.root_with(contents)
+        problems = []
+        core_paths.check_runtime_identifiers(
+            root, sorted(contents), self.declaration(), problems
+        )
+        return problems
+
+    def test_a_binding_naming_no_runtime_is_reported(self):
+        problems = self.problems_for(
+            {
+                "core/policy/rules.md": "nothing specific here",
+                "core/binding/adapter.md": "also nothing specific here",
+            }
+        )
+        self.assertEqual(1, len(problems), problems)
+        self.assertIn("core/binding/", problems[0])
+
+    def test_a_binding_naming_the_runtime_is_accepted(self):
+        """The control case. Without it, a counter-check that reported every
+        binding would satisfy the assertion above."""
+        problems = self.problems_for(
+            {
+                "core/policy/rules.md": "nothing specific here",
+                "core/binding/adapter.md": "targets %s" % self.TERM,
+            }
+        )
+        self.assertEqual([], problems)
+
+    def test_a_core_file_naming_the_runtime_is_still_reported(self):
+        """Both halves fire independently; a binding that satisfies the
+        counter-check must not excuse a leak into core."""
+        problems = self.problems_for(
+            {
+                "core/policy/rules.md": "targets %s" % self.TERM,
+                "core/binding/adapter.md": "targets %s" % self.TERM,
+            }
+        )
+        self.assertEqual(1, len(problems), problems)
+        self.assertIn("core/policy/rules.md", problems[0])
+
+    def test_an_empty_binding_layer_is_not_reported(self):
+        """Why the real repository passes today. Stated so the difference
+        between 'the binding is clean' and 'there is no binding yet' is
+        recorded rather than inferred."""
+        self.assertEqual([], self.problems_for({"core/policy/rules.md": "clean"}))
 
 
 if __name__ == "__main__":

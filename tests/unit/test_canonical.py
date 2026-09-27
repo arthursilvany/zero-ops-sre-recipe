@@ -322,6 +322,60 @@ class CrossPlatformDeterminism(unittest.TestCase):
                 )
 
 
+class ShippedScopeContractsHashIdentically(unittest.TestCase):
+    """NEG-J, FR-19 and FR-23, acceptance criterion 8 of US-1.
+
+    The vectors above are synthetic documents. The criterion is about a real
+    scope contract, and the two differ in the ways that actually break
+    cross-platform reproducibility: a shipped file is read from disk, so it
+    carries whatever line endings git checked out and whatever encoding the
+    editor wrote.
+
+    Pinning the digest here is what makes the CI matrix load-bearing. The
+    suite runs on windows-latest and ubuntu-latest; if a CRLF checkout or a
+    BOM changed the bytes, one leg would produce a different digest and this
+    constant would fail on that leg alone. Computing the digest on both
+    runners and comparing it to itself would agree everywhere and prove
+    nothing.
+    """
+
+    EXPECTED = {
+        os.path.join("examples", "minimal", "scope-contract.json"):
+            "9d551f1d10fb5fed5058511185585ffe28723efd756a0a37da12ceb3258c8e9a",
+        os.path.join("examples", "two-environments", "scope-contract.json"):
+            "b95af70c23e6ee17c842442963af993b3ba73e5ac92b932663cc39449a9862f4",
+    }
+
+    def load(self, relative):
+        with open(os.path.join(REPO_ROOT, relative), "r", encoding="utf-8") as handle:
+            return json.load(handle)
+
+    def test_every_shipped_scope_contract_has_a_pinned_digest(self):
+        """A count guard in the form that matters here: a contract added later
+        without a pin would make this class quietly cover less than it claims."""
+        found = sorted(
+            os.path.join("examples", name, "scope-contract.json")
+            for name in sorted(os.listdir(os.path.join(REPO_ROOT, "examples")))
+            if os.path.isdir(os.path.join(REPO_ROOT, "examples", name))
+        )
+        self.assertEqual(sorted(self.EXPECTED), found)
+
+    def test_each_digest_matches_the_pin(self):
+        for relative, expected in sorted(self.EXPECTED.items()):
+            with self.subTest(path=relative):
+                self.assertEqual(expected, canonical.digest(self.load(relative)))
+
+    def test_the_two_contracts_do_not_share_a_digest(self):
+        """The control case. Two different documents hashing alike would mean
+        the digest was not a function of the content, and every equality above
+        would still pass."""
+        self.assertEqual(2, len(set(self.EXPECTED.values())))
+
+    def test_each_digest_is_lowercase_hex(self):
+        for relative, expected in sorted(self.EXPECTED.items()):
+            with self.subTest(path=relative):
+                self.assertRegex(expected, r"\A[0-9a-f]{64}\Z")
+
 
 class TheCommandLineSurface(unittest.TestCase):
     def run_cli(self, *args, stdin=None):

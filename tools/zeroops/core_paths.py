@@ -184,6 +184,84 @@ def check_runtime_identifiers(root, files, declaration, problems):
         )
 
 
+def duplicate_ids(mapping):
+    """Return {id: [paths]} for every $id claimed by more than one file.
+
+    Pure, so the suite can show it reports a duplicate rather than only
+    observing that the repository currently has none.
+    """
+    by_id = {}
+    for path, identifier in sorted(mapping.items()):
+        by_id.setdefault(identifier, []).append(path)
+    return dict((k, v) for k, v in by_id.items() if len(v) > 1)
+
+
+def schema_ids(root, files):
+    """Map every tracked *.schema.json path to the $id it declares.
+
+    A schema with no $id maps to None rather than being skipped: dropping it
+    would make an absent identifier indistinguishable from a unique one.
+    """
+    mapping = {}
+    for path in files:
+        if not path.endswith(".schema.json"):
+            continue
+        try:
+            with open(os.path.join(root, path), "r", encoding="utf-8") as handle:
+                document = json.load(handle)
+        except (OSError, ValueError):
+            mapping[path] = None
+            continue
+        identifier = document.get("$id") if isinstance(document, dict) else None
+        mapping[path] = identifier
+    return mapping
+
+
+def check_schema_ids(root, files, problems):
+    """FR-05: a schema resolves to exactly one definition.
+
+    Two files claiming the same $id make resolution order decide which
+    definition wins, and the loser validates nothing while still appearing
+    to be in force.
+    """
+    mapping = schema_ids(root, files)
+    for path, identifier in sorted(mapping.items()):
+        if identifier is None:
+            problems.append(
+                "%s: declares no $id, so nothing can reference it and a second "
+                "copy of it could not be detected as a duplicate." % path
+            )
+    named = dict((p, i) for p, i in mapping.items() if i is not None)
+    for identifier, paths in sorted(duplicate_ids(named).items()):
+        problems.append(
+            "%s: claimed by more than one schema (%s). Resolution order would "
+            "decide which definition is in force." % (identifier, ", ".join(paths))
+        )
+
+
+KEEP_FILENAMES = (".gitkeep", ".keep", "KEEP", "placeholder")
+
+
+def check_no_placeholder_directories(files, problems):
+    """NFR-24: a directory holding only a keep-file is a promise, not content.
+
+    The keep-file exists to make an empty directory survive git. A directory
+    that still needs one has nothing in it, and the structure it implies is
+    not yet real.
+    """
+    contents = {}
+    for path in files:
+        directory = os.path.dirname(path)
+        contents.setdefault(directory, []).append(os.path.basename(path))
+    for directory, names in sorted(contents.items()):
+        if all(name in KEEP_FILENAMES for name in names):
+            problems.append(
+                "%s: contains only %s. A keep-file marks a directory that has no "
+                "content yet; declare the directory when it holds something."
+                % (directory or "<repository root>", ", ".join(sorted(names)))
+            )
+
+
 def check(root=None, declaration=None):
     """Return a list of problems. An empty list means the declaration holds.
 
@@ -220,4 +298,6 @@ def check(root=None, declaration=None):
     check_declaration_shape(root, declaration, problems)
     check_coverage(files, declaration, problems)
     check_runtime_identifiers(root, files, declaration, problems)
+    check_schema_ids(root, files, problems)
+    check_no_placeholder_directories(files, problems)
     return problems
