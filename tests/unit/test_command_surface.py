@@ -108,6 +108,28 @@ class TheCommandSurfaceIsWhatIsDocumented(unittest.TestCase):
             with self.subTest(command=command):
                 self.assertIn(command, self.doc)
 
+    def test_every_command_has_a_section_of_its_own(self):
+        """A bare substring is too weak to notice a section going missing.
+        `hash` matches `--require-hashes` in prose, so a command could lose
+        its documentation entirely while the check above still passed.
+
+        A heading naming the command is the property that actually holds:
+        each command is explained somewhere a reader can find it.
+        """
+        headings = [line for line in self.doc.splitlines() if line.startswith("## ")]
+        self.assertGreaterEqual(len(headings), len(EXPECTED_COMMANDS))
+        for command in EXPECTED_COMMANDS:
+            with self.subTest(command=command):
+                self.assertTrue(
+                    any(command in self.documented_under(heading) for heading in headings),
+                    "no section documents %r" % command,
+                )
+
+    def documented_under(self, heading):
+        """The invocations that appear under one heading."""
+        body = self.doc.split(heading, 1)[1].split("\n## ", 1)[0]
+        return re.findall(r"bin[\\/]zeroops(?:\.ps1)? (\S+)", body)
+
     def test_every_documented_invocation_names_a_real_command(self):
         invocations = re.findall(r"bin[\\/]zeroops(?:\.ps1)? (\S+)", self.doc)
         self.assertTrue(invocations, "no invocations found; the check is vacuous")
@@ -122,11 +144,38 @@ class TheCommandSurfaceIsWhatIsDocumented(unittest.TestCase):
         says otherwise sends a reader to a command that cannot work."""
         self.assertNotIn("pip install -e tools", self.doc)
 
+    def install_lines(self):
+        """The lines a reader would copy, not the prose about them.
+
+        The distinction is the whole point. Prose explaining why a flag
+        matters keeps mentioning the flag after the command has lost it, so a
+        search of the whole document reports the control is present while the
+        command a reader actually runs no longer carries it.
+        """
+        return [
+            line.strip()
+            for line in self.doc.splitlines()
+            if "pip install" in line and not line.strip().startswith("`")
+        ]
+
+    def test_the_document_shows_exactly_one_install_command(self):
+        """A count guard. Zero would make the flag checks vacuous, and more
+        than one would let a reader copy whichever came first."""
+        self.assertEqual(1, len(self.install_lines()), self.install_lines())
+
     def test_the_install_command_keeps_both_flags(self):
         """Either flag dropped removes the control and leaves the command
         looking the same."""
+        line = self.install_lines()[0]
+        self.assertIn("--require-hashes", line)
+        self.assertIn("--only-binary=:all:", line)
+        self.assertIn("tools/requirements.lock", line)
+
+    def test_the_prose_also_explains_both_flags(self):
+        """Separate from the command, and asserted separately. A command with
+        the flags and no explanation invites the next reader to drop them."""
         self.assertIn("--require-hashes", self.doc)
-        self.assertIn("--only-binary=:all:", self.doc)
+        self.assertIn("--only-binary", self.doc)
 
     def test_the_validator_points_at_the_lock_rather_than_an_editable_install(self):
         source = read(os.path.join(REPO_ROOT, "tools", "zeroops", "validate.py"))
