@@ -62,7 +62,26 @@ on stderr, end up inside captured evidence, and read as failures.
 
 ## Bypassing the broker
 
-Calling Azure from `core/` or `wizard/` without going through this module
-fails the build. That check is T2.02 and is not yet implemented; until it is,
-the choke point is a convention rather than a guarantee, and this sentence is
-here so that gap is recorded rather than assumed closed.
+Calling Azure from a declared core path without going through this module
+fails the build. The check is part of `zeroops check-core`, which CI already
+runs on both platforms, and it applies two rules.
+
+**No core path may invoke anything.** Not the Azure CLI, not an SDK, not a
+shell. The rule is about the capability to invoke rather than about
+recognising Azure, because a list of ways to reach Azure is a list somebody
+has to keep complete, and the day it is not is the day the check passes for
+the wrong reason. `subprocess` in a core path is a finding whether or not the
+command it runs looks like Azure.
+
+**A brokered command may name only an allowed verb.** The broker refuses at
+runtime, but a wizard that only fails when someone runs it has already
+shipped. A command written as a literal list is readable in the source, so it
+is read there too. A command assembled at runtime is not readable, and the
+check says nothing about it rather than guessing; the first rule is what
+covers that case, because a core path has no way to run what it assembled.
+
+The binding layer is not exempt. It names the runtime, which is why it
+exists, and that is not a licence to invoke it.
+
+`tools/` is not scanned. It holds the broker, which is the one place allowed
+to invoke, and scanning it would make the rule unsatisfiable.

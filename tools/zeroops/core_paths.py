@@ -262,6 +262,21 @@ def check_no_placeholder_directories(files, problems):
             )
 
 
+def check_call_sites(root, files, declaration, problems):
+    """FR-11: reaching Azure outside the broker fails the build.
+
+    Folded into this gate rather than given a command of its own. A separate
+    command is a step somebody has to remember to add to CI, and the first
+    time it is forgotten the build goes green for a reason nobody chose.
+    This gate already runs on both runners.
+    """
+    from . import broker, callsites
+
+    found, examined = callsites.scan(root, files, declaration, broker.allowed_verbs())
+    problems.extend(found)
+    return examined
+
+
 def check(root=None, declaration=None):
     """Return a list of problems. An empty list means the declaration holds.
 
@@ -300,4 +315,5 @@ def check(root=None, declaration=None):
     check_runtime_identifiers(root, files, declaration, problems)
     check_schema_ids(root, files, problems)
     check_no_placeholder_directories(files, problems)
+    check_call_sites(root, files, declaration, problems)
     return problems
