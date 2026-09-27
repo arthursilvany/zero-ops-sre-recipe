@@ -351,11 +351,34 @@ class TheDocumentationMatchesTheAllowList(unittest.TestCase):
     def test_every_allowed_verb_is_documented(self):
         self.assertEqual(sorted(broker.allowed_verbs()), sorted(self.documented_verbs()))
 
-    def test_the_page_records_that_the_bypass_check_is_not_built_yet(self):
-        """T2.02 is the check that makes the choke point a guarantee. Until it
-        exists the page must say so, or a reader takes the convention for an
-        enforced rule."""
-        self.assertIn("T2.02", self.doc)
+    def test_the_page_records_which_gate_enforces_the_choke_point(self):
+        """The page once said the check did not exist. It does now, and a
+        page that still said otherwise would leave a reader treating an
+        enforced rule as a convention. Naming the gate is what lets a reader
+        find out whether it actually runs."""
+        self.assertIn("check-core", self.doc)
+        self.assertNotIn("not yet implemented", self.doc)
+
+    def test_the_page_agrees_with_the_check_about_the_binding_layer(self):
+        """Stated twice on purpose: the page says the binding layer is not
+        exempt, and the check is asked whether it would scan one. Either half
+        alone can drift - prose nothing reads, or behaviour nobody wrote
+        down."""
+        from zeroops import callsites
+
+        self.assertIn("binding layer is not exempt", self.doc)
+        declaration = {
+            "categories": {
+                "core": [{"path": "core/policy/", "status": "present", "purpose": "x"}],
+                "binding": [
+                    {"path": "core/binding/", "status": "present", "purpose": "x"}
+                ],
+            }
+        }
+        self.assertEqual(
+            ["core/binding/adapter.py"],
+            callsites.scanned_paths(["core/binding/adapter.py"], declaration),
+        )
 
     def test_the_page_states_where_the_real_guarantee_lives(self):
         """SEC-001: authority for read-only is the role assignment, not this
