@@ -33,6 +33,7 @@ import sys
 
 from zeroops import failure_modes
 from zeroops import obligations
+from zeroops import policy
 from zeroops import references
 
 # JSON Schema treats "format" as an annotation by default, so a malformed
@@ -504,11 +505,25 @@ def _handoff_record_semantics(instance):
     return findings
 
 
+def _tool_policy_semantics(instance):
+    """The baseline ceiling (FR-51, FR-53).
+
+    Only the limits. The enforcement model and the seven deny rules are pinned
+    by the schema with `const`, `minItems` and a closed enumeration, so
+    re-checking them here would be a check that cannot fail.
+    """
+    return [
+        Finding(pointer, message)
+        for pointer, message in policy.ceiling_findings(instance)
+    ]
+
+
 SEMANTIC_RULES = {
     "framework-config": semantic_findings,
     "scope-contract": _scope_contract_semantics,
     "evidence-manifest": _evidence_manifest_semantics,
     "handoff-record": _handoff_record_semantics,
+    "tool-policy": _tool_policy_semantics,
 }
 
 

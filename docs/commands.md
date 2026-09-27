@@ -136,7 +136,7 @@ hash alike and do not.
 ## Lint the documentation
 
 ```powershell
-npx --yes markdownlint-cli2 "docs/**/*.md" "*.md"
+npx --yes markdownlint-cli2 "**/*.md" "!.github/**" "!node_modules/**"
 ```
 
 ## What these commands never do

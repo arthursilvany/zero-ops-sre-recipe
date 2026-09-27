@@ -26,7 +26,7 @@ import subprocess
 import sys
 import unittest
 
-from zeroops import localtest, validate
+from zeroops import core_paths, localtest, validate
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 COMMANDS_DOC = os.path.join(REPO_ROOT, "docs", "commands.md")
@@ -181,6 +181,94 @@ class TheCommandSurfaceIsWhatIsDocumented(unittest.TestCase):
         source = read(os.path.join(REPO_ROOT, "tools", "zeroops", "validate.py"))
         self.assertNotIn("pip install -e tools", source)
         self.assertIn("--require-hashes", source)
+
+
+class TheDocumentedLintCoversEveryMarkdownFile(unittest.TestCase):
+    """The lint command carries its own scope, and a scope is a list that
+    silently stops being complete.
+
+    It was `docs/**/*.md` and `*.md`, which left `contracts/schema-register.md`
+    and `deploy/README.md` unlinted from the day they were written. Nothing
+    said so, because a lint that examines fewer files still reports success.
+    The scope is now one glob with its exclusions written beside it, so the
+    documented command is the only statement of what is covered.
+    """
+
+    @staticmethod
+    def matches(path, pattern):
+        """Glob semantics, not fnmatch semantics.
+
+        fnmatch lets `*` cross a directory separator, so `*.md` would match
+        every markdown file in the repository and the coverage assertion
+        below would hold no matter what the documented globs said. The
+        control case is what caught that.
+        """
+        parts = []
+        index = 0
+        while index < len(pattern):
+            if pattern.startswith("**/", index):
+                parts.append("(?:[^/]+/)*")
+                index += 3
+            elif pattern.startswith("**", index):
+                parts.append(".*")
+                index += 2
+            elif pattern[index] == "*":
+                parts.append("[^/]*")
+                index += 1
+            else:
+                parts.append(re.escape(pattern[index]))
+                index += 1
+        return re.fullmatch("".join(parts), path) is not None
+
+    def lint_globs(self):
+        for line in read(COMMANDS_DOC).splitlines():
+            if "markdownlint-cli2" in line and not line.strip().startswith("`"):
+                return re.findall(r'"([^"]+)"', line)
+        return []
+
+    def covered(self, path):
+        included, excluded = [], []
+        for pattern in self.lint_globs():
+            (excluded if pattern.startswith("!") else included).append(
+                pattern.lstrip("!")
+            )
+        if any(self.matches(path, pattern) for pattern in excluded):
+            return False
+        return any(self.matches(path, pattern) for pattern in included)
+
+    def tracked_markdown(self):
+        root = core_paths.repo_root()
+        return [
+            path for path in core_paths.tracked_files(root) if path.endswith(".md")
+        ]
+
+    def test_the_command_declares_at_least_one_glob(self):
+        self.assertTrue(self.lint_globs())
+
+    def test_there_is_markdown_to_cover(self):
+        """Without this the assertion below passes over an empty list."""
+        self.assertGreater(len(self.tracked_markdown()), 10)
+
+    def test_every_tracked_markdown_file_matches_a_documented_glob(self):
+        for path in self.tracked_markdown():
+            if path.startswith(".github/"):
+                continue
+            with self.subTest(path=path):
+                self.assertTrue(
+                    self.covered(path),
+                    "%s is not covered by %s" % (path, self.lint_globs()),
+                )
+
+    def test_the_exclusion_is_stated_in_the_command_rather_than_assumed(self):
+        """`.github/` carries files this repository did not author and does
+        not lint. Skipping them silently and skipping them by an exclusion
+        somebody can read are different things."""
+        self.assertFalse(self.covered(".github/workflows/notes.md"))
+
+    def test_a_new_top_level_directory_would_be_covered(self):
+        """The control, and the point of the change. The previous globs
+        listed directories, so every new one started out unlinted."""
+        self.assertTrue(self.covered("somewhere/new/notes.md"))
 
 
 class ThePlanNoLongerDefersWhatExists(unittest.TestCase):
