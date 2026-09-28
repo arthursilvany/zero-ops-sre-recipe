@@ -89,7 +89,7 @@ FIXTURES = {
         },
     },
     "capability-mapping": {
-        "schemaVersion": "1.0.0",
+        "schemaVersion": "1.1.0",
         "runtimeName": "example-runtime",
         "runtimeVersion": "1.0.0",
         "verificationState": "unverified",
