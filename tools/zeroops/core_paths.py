@@ -307,6 +307,21 @@ def check_schema_lint(root, files, declaration, problems):
     return examined
 
 
+def check_evidence_entry(root, files, declaration, problems):
+    """FR-55 second structural half: an evidence entry cannot hold content.
+
+    The companion to the instruction-region check above. That one keeps
+    retrieved content out of the instruction region; this one keeps it out of
+    the record. Both run here so neither can be dropped while the other keeps
+    reporting success.
+    """
+    from . import evidence
+
+    found, examined = evidence.scan(root, files, declaration)
+    problems.extend(found)
+    return examined
+
+
 def check(root=None, declaration=None):
     """Return a list of problems. An empty list means the declaration holds.
 
@@ -348,4 +363,5 @@ def check(root=None, declaration=None):
     check_call_sites(root, files, declaration, problems)
     check_instruction_regions(root, files, declaration, problems)
     check_schema_lint(root, files, declaration, problems)
+    check_evidence_entry(root, files, declaration, problems)
     return problems
