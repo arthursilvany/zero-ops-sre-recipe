@@ -292,6 +292,21 @@ def check_instruction_regions(root, files, declaration, problems):
     return examined
 
 
+def check_schema_lint(root, files, declaration, problems):
+    """SEC-013 and FR-49: no core schema leaves a way in.
+
+    Closed objects, no secret-named property, no free-form field. The third of
+    those is the third leg of the instruction-region argument above, which
+    names free-form fields as the boundary it cannot see. Running the two in
+    one gate is what keeps that argument whole.
+    """
+    from . import schema_lint
+
+    found, examined = schema_lint.scan(root, files, declaration)
+    problems.extend(found)
+    return examined
+
+
 def check(root=None, declaration=None):
     """Return a list of problems. An empty list means the declaration holds.
 
@@ -332,4 +347,5 @@ def check(root=None, declaration=None):
     check_no_placeholder_directories(files, problems)
     check_call_sites(root, files, declaration, problems)
     check_instruction_regions(root, files, declaration, problems)
+    check_schema_lint(root, files, declaration, problems)
     return problems
