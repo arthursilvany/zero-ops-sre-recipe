@@ -171,6 +171,23 @@ Python 3.11 or newer is required. That floor is not a preference: it is the stri
 
 On Windows, use `bin\zeroops.ps1` in place of `bin/zeroops`.
 
+### The test matrix is load-bearing
+
+The offline suite runs on `ubuntu-latest` and `windows-latest`, and both legs are
+required. This is not redundancy for its own sake. Several digests in this repository
+are pinned as literal constants, and a constant compared against itself agrees on any
+machine. What makes those pins evidence is that two different operating systems both had
+to reproduce them, which is what FR-19 and FR-23 claim.
+
+Consequently the matrix itself is checked. `tests/negative/test_cross_platform.py` reads
+`.github/workflows/verify.yml` and fails when either runner is dropped, when `runs-on`
+stops reading the matrix, or when `fail-fast` is left on. That last one matters because
+the first leg to fail cancels the other, so a genuine disagreement between platforms
+would be reported as a cancellation rather than as the divergence it is.
+
+Do not simplify the matrix to one runner to save minutes. Every pinned digest would keep
+passing and would stop meaning anything.
+
 ## Branching and commits
 
 - Trunk-based development off `main`. Direct pushes to `main` are not permitted.
