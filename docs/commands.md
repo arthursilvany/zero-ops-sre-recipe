@@ -126,12 +126,22 @@ green for a reason nobody chose.
 | A brokered command may name only an allowed verb | A literal command list naming a verb outside the read-only set (FR-52) |
 | No core path holds an instruction region | A JSON key or a Python name meaning prompt, instruction or message (FR-55, SEC-002) |
 | No core schema leaves a way in | An object that is not closed, a property named for secret material, or a field that accepts arbitrary structure (FR-49, SEC-013) |
+| An evidence entry cannot hold content | A property of `$defs/evidenceEntry` that admits text nobody constrained, an entry that does not record a content hash and a data classification, or a hash not made conditional on the observation state (FR-55, CC-019) |
 
-The last two rules are two thirds of one argument. Retrieved content cannot reach an
+The last three rules are one argument in three legs. Retrieved content cannot reach an
 instruction region inside a core path because a core path cannot retrieve anything, has
-nowhere to put a prompt, and carries no field able to hold one. Each leg fails for a
-different reason and none implies the others, which is why all of them run from this one
-command.
+nowhere to put a prompt, carries no field able to hold one, and leaves no place in the
+record where the thing itself could be written down instead of its hash. Each leg fails
+for a different reason and none implies the others, which is why all of them run from
+this one command.
+
+The evidence rule is about shape rather than names. A vocabulary of content-sounding
+property names was written and discarded: `contentHash`, `dataClassification`,
+`queryText` and ten others collide with it and every one of them is correct. Outside the
+entry the rule relaxes to bounding rather than closing, because a conclusion holds a
+sentence somebody wrote. That bound is the named residual: a capped statement could still
+hold an instruction, and it is safe only because no core path can retrieve anything to
+put there.
 
 Reading is deliberately narrow. JSON object keys are read and values are not; Python
 bound, imported and parameter names are read and string literals are not; markdown is not
