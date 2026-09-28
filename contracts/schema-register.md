@@ -33,7 +33,7 @@ fails just as an entry with no schema does.
 | Connector configuration | `connector-config.schema.json` | Required when any connector is used | Consumer | Declaration committed, credential never |
 | Agent definition | `agent-definition.schema.json` | Required | Framework | Runtime-agnostic. Names capability classes, not runtime tool identifiers |
 | Tool policy | `tool-policy.schema.json` | Required | Framework | Deny-by-default, deny-wins, fail-closed. Declared, not framework-enforced (FR-53) |
-| Capability mapping | `capability-mapping.schema.json` | Required | Binding layer | Maps classes to one pinned runtime version. Starts unverified until the reconciliation gate runs (NEG-C) |
+| Capability mapping | `capability-mapping.schema.json` | Required | Binding layer | Maps classes to one pinned runtime version, and states where a binding emitted for that runtime carries its explicit tool list (NEG-D). Starts unverified until the reconciliation gate runs (NEG-C) |
 | Evidence manifest | `evidence-manifest.schema.json` | Required | Execution | Holds content hashes, never content (NEG-F) |
 | Change set | `change-set.schema.json` | Required as contract | Not produced in v1 | No executed lifecycle state exists, so no artifact can claim application (FR-06) |
 | Approval ledger | `approval-ledger.schema.json` | Required as contract | Not produced in v1 | Decider recorded as a principal object identifier, never a display name (SEC-016) |

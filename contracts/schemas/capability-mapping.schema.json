@@ -39,6 +39,11 @@
       "description": "When the reconciliation gate last ran. Absent while the state is unverified."
     },
 
+    "toolListPointer": {
+      "$ref": "#/$defs/jsonPointer",
+      "description": "Where, in a binding emitted for this runtime, the explicit tool list appears. A location, never a value: this says which position in the emitted document must hold the list, and never what the list contains, so the contract stays runtime-agnostic while the check that reads it does not have to guess. Deliberately optional rather than required, because a mapping consumed only by the reconciliation gate has no use for it, and because making its absence a schema failure would move NEG-D's refusal into JSON Schema, where NEG-D's own test would prove nothing about NEG-D. Its absence is therefore refused by the explicit-tool-list check instead, which fails closed on a binding layer that does not say where the list lives (NEG-D)."
+    },
+
     "entries": {
       "type": "array",
       "uniqueItems": true,
@@ -69,9 +74,16 @@
   "$defs": {
     "schemaVersion": {
       "type": "string",
-      "const": "1.0.0",
+      "const": "1.1.0",
       "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
       "description": "The version of this schema the instance conforms to (FR-05, FR-29). Pinned with const rather than left to the pattern: without it an instance could declare any version at all and still validate, which made the declaration decorative (NFR-21)."
+    },
+    "jsonPointer": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 200,
+      "pattern": "^(/([^/~]|~[01])*)+$",
+      "description": "An RFC 6901 JSON Pointer with at least one reference token. The empty pointer, which denotes the whole document, is excluded: a document is not a list, so accepting it would only move the failure one step later."
     },
     "identifier": {
       "type": "string",

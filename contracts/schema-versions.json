@@ -46,8 +46,8 @@
     },
     {
       "schema": "capability-mapping",
-      "version": "1.0.0",
-      "contentDigest": "5fda72e450208dcbaa86689a3bb34210ab0f3194f5124d6df6d3b2188078ac7e",
+      "version": "1.1.0",
+      "contentDigest": "a4072cf1c9c4ab052623a0c81c39784ba0d4d62b61066b631b01574e03a4af80",
       "history": [
         {
           "version": "1.0.0",
@@ -55,6 +55,18 @@
           "breakingChanges": [],
           "migration": "None required. This is the initial published version, so no consumer document predates it and nothing needs rewriting.",
           "rationale": "Initial publication. Recorded as a version record rather than omitted, so the history is never empty and a reader never has to infer that the first entry was the beginning."
+        },
+        {
+          "version": "1.1.0",
+          "date": "2026-09-28",
+          "breakingChanges": [
+            {
+              "change": "A mapping must now declare schemaVersion 1.1.0. Nothing in the contract stopped being accepted and nothing became required, but the version is pinned with const, so a document still declaring 1.0.0 is refused with a version mismatch rather than validated against the newer shape.",
+              "affects": "/schemaVersion"
+            }
+          ],
+          "migration": "Change schemaVersion from 1.0.0 to 1.1.0. Nothing else in an existing mapping needs to change. Optionally add toolListPointer, naming where a binding emitted for this runtime carries its explicit tool list; without it the NEG-D check refuses every binding emitted for this runtime, which is the fail-closed state and not an exemption.",
+          "rationale": "Added toolListPointer so the binding layer can state where an emitted binding carries its tool list. NEG-D has to read that list out of a runtime-shaped document, and nothing under contracts/ may name a runtime's properties (FR-04). The alternative was for the checking code to search an arbitrary document for something list-shaped, which is the inference the call-site check already refused to make: a check that guesses its own subject cannot distinguish an absent list from one it failed to look for. Versioned as a minor change because the contract change is purely additive and optional. The mandatory version-string update is recorded as a breaking change anyway, because it is what a consumer's untouched document actually experiences, and a register claiming nothing breaks while the validator refuses their file would be the register lying about the validator."
         }
       ]
     },
