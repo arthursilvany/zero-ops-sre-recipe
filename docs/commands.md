@@ -115,6 +115,29 @@ A declared path that is absent fails, and so does a file that exists and is decl
 nowhere. Only the first direction is the obvious one; the second is the one that happens
 by accident (FR-04, FR-61).
 
+The same command carries the structural rules about what a declared core path may hold.
+They live here rather than in commands of their own because a separate command is a step
+somebody has to remember to add to CI, and the first time it is forgotten the build goes
+green for a reason nobody chose.
+
+| Rule | What fails |
+|------|------------|
+| No core path may invoke anything | A CLI call, an SDK call or a shell from a declared core path, whether or not the command looks like Azure (FR-52) |
+| A brokered command may name only an allowed verb | A literal command list naming a verb outside the read-only set (FR-52) |
+| No core path holds an instruction region | A JSON key or a Python name meaning prompt, instruction or message (FR-55, SEC-002) |
+| No core schema leaves a way in | An object that is not closed, a property named for secret material, or a field that accepts arbitrary structure (FR-49, SEC-013) |
+
+The last two rules are two thirds of one argument. Retrieved content cannot reach an
+instruction region inside a core path because a core path cannot retrieve anything, has
+nowhere to put a prompt, and carries no field able to hold one. Each leg fails for a
+different reason and none implies the others, which is why all of them run from this one
+command.
+
+Reading is deliberately narrow. JSON object keys are read and values are not; Python
+bound, imported and parameter names are read and string literals are not; markdown is not
+read at all. Core files describe these rules in prose, so a scanner reading prose would
+fail a schema for explaining its own compliance.
+
 ## Hash a document
 
 ```powershell
