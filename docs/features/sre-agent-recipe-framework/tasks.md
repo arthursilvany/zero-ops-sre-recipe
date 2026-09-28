@@ -13,8 +13,8 @@
 
 Every task carries the `plan.md` work item identifier it implements (`S3-xx`, `S4-xx`,
 `S5-xx`). That identifier is the traceability spine: no work item is renamed, merged away
-or silently dropped. Three identifiers are **new** (`S3-15`, `S4-17`, `S5-16`) and exist
-because a required security control or requirement had no owner in `plan.md`; each is
+or silently dropped. Four identifiers are **new** (`S3-15`, `S4-17`, `S5-16`, `S5-17`) and
+exist because a required security control or requirement had no owner in `plan.md`; each is
 flagged in *Coverage Gaps Found During Decomposition* below.
 
 Markers:
@@ -602,9 +602,9 @@ with a pre-existing resource deliberately planted in the target scope.
 
 **Slice**: 5
 **Spec story**: closes the Definition of Done in `prd.md`
-**Work items**: S5-10, S5-11, S5-12, S5-13, S5-14, S5-15, S5-16 (new)
+**Work items**: S5-10, S5-11, S5-12, S5-13, S5-14, S5-15, S5-16 (new), S5-17 (new)
 **Satisfies**: FR-08, FR-09, FR-42, FR-65, FR-71, FR-72, FR-73, FR-74, NFR-04, NFR-16,
-NFR-17, NFR-18, NFR-19, SC-02, SC-03, SC-10, SC-12
+NFR-17, NFR-18, NFR-19, SC-02, SC-03, SC-10, SC-12, SC-13, CON-11
 **Security controls owned**: SEC-010, SEC-006 (public-visibility precondition)
 
 **Independent test**: Hand the quickstart to someone who has never seen the repository and
@@ -657,6 +657,7 @@ executing it; a self-assessment is not evidence (FR-42).
 - [ ] T11.06 `[human]` **(S5-14) Execute SC-12 end to end and record the result.** Elapsed time and every improvisation point, or an explicit unvalidated statement. (SC-12, FR-42)
 - [ ] T11.07 `[human]` **(S5-15) Public-visibility sanitization audit.** Full history, push protection verified as a precondition, result recorded. (NFR-04, SEC-006)
 - [ ] T11.08 `[copilot]` `[P]` **(S5-16, NEW) Required-documentation completeness check.** Asserts each of the eighteen `prd.md` items resolves to an artifact or a recorded deferral, and that the architecture overview renders a Mermaid diagram. (NFR-16, NFR-17, NFR-19) **New work item — see Coverage Gaps.**
+- [ ] T11.09 `[human]` **(S5-17, NEW) Customer onboarding checklist, quick wins first.** Phase one installs the agent, adds the sources and answers the team integration before anything is asked of the customer, then uses the Level 100 prompts of the external playbook, linked by pinned commit and never copied because that repository carries no licence. Phase two maps the customer's existing documents onto the recipe artifacts they can populate. (CON-11, SC-12, SC-13) **New work item — see Coverage Gaps.**
 
 ---
 
@@ -682,9 +683,9 @@ executing it; a self-assessment is not evidence (FR-42).
 | S3-14 | US-3 | S4-14 | US-6 | S5-14 | US-11 |
 | S3-15 *(new)* | US-1 | S4-15 | US-6 | S5-15 | US-11 |
 | | | S4-16 | US-7 | S5-16 *(new)* | US-11 |
-| | | S4-17 *(new)* | US-6 | | |
+| | | S4-17 *(new)* | US-6 | S5-17 *(new)* | US-11 |
 
-**No `plan.md` work item is unmapped.** 45 existing work items, all placed. Three new
+**No `plan.md` work item is unmapped.** 45 existing work items, all placed. Four new
 identifiers added, each justified below.
 
 ### Every SEC finding has an owning task
@@ -715,13 +716,14 @@ NEG-K (T2.10).
 
 ### Coverage Gaps Found During Decomposition
 
-Three gaps in `plan.md`, each closed by a new work item rather than silently absorbed.
+Four gaps in `plan.md`, each closed by a new work item rather than silently absorbed.
 
 | New ID | Gap | Evidence | Closed by |
 |---|---|---|---|
 | S3-15 | SEC-005's required controls — enumerated, hash-pinned, wheel-only runtime dependencies, development dependencies excluded, pinned interpreter floor — are assigned to "Slice 3 controls" in the security review but no `plan.md` work item owns them. S4-14 covers drift alerting only, which is detection after the fact, not prevention at install time. | `security-review-architecture.md` SEC-005 row, Slice column "2 (ADR), 3 (controls)"; no S3-xx row names dependency pinning | T1.05 |
 | S4-17 | SEC-014's control has two halves. S3-14 resolves *where the denylist lives*. Nothing implements the SC-13 gate itself. S4-14's enumerated gates do not include it. | `plan.md` S3-14 notes "Blocks the sanitization gate design" — the gate it blocks has no work item | T6.05 |
 | S5-16 | NFR-16 requires all eighteen `prd.md` documentation items to resolve, and NFR-17 requires a Mermaid diagram. S5-13's traceability matrix covers requirement identifiers, not the documentation inventory. | `plan.md` traceability table maps NFR-15 to NFR-19 to S4-16, S5-10, S5-14, none of which asserts the eighteen-item inventory | T11.08 |
+| S5-17 | CON-11 requires quick wins for any customer and SC-12 requires a first useful result in one working session, but both are asserted only as properties of this repository. No work item expresses the engagement-facing order in which a new customer reaches that result, and S5-14's quickstart answers a different question for a different audience. | `plan.md` maps CON-11 and SC-12 to S5-14 alone, whose acceptance is about counted files and steps in the repository quickstart | T11.09 |
 
 Two requirements were also **previously unowned within existing work items** and are now
 explicitly scoped rather than assumed:
