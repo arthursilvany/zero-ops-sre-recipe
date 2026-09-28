@@ -277,6 +277,21 @@ def check_call_sites(root, files, declaration, problems):
     return examined
 
 
+def check_instruction_regions(root, files, declaration, problems):
+    """FR-55 structural half: no core path holds an instruction region.
+
+    Folded into the same gate as the call-site check, and for the same reason.
+    It also matters that the two run together: this check's argument depends on
+    the invocation rule holding, so running them apart would let one be dropped
+    while the other kept reporting success.
+    """
+    from . import instructions
+
+    found, examined = instructions.scan(root, files, declaration)
+    problems.extend(found)
+    return examined
+
+
 def check(root=None, declaration=None):
     """Return a list of problems. An empty list means the declaration holds.
 
@@ -316,4 +331,5 @@ def check(root=None, declaration=None):
     check_schema_ids(root, files, problems)
     check_no_placeholder_directories(files, problems)
     check_call_sites(root, files, declaration, problems)
+    check_instruction_regions(root, files, declaration, problems)
     return problems
