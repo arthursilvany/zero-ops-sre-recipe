@@ -266,9 +266,36 @@ class TheRepositoryIsInTheStateItDeclares(unittest.TestCase):
     def status(self):
         declaration = core_paths.load_declaration(REPO_ROOT)
         for entry in declaration["categories"]["binding"]:
-            if entry["path"] == "core/binding/":
+            if entry["path"] == binding.BINDING_DIRECTORY + "/":
                 return entry["status"]
-        self.fail("core/binding/ is not declared in any category")
+        self.fail("%s is not declared in any category" % binding.BINDING_DIRECTORY)
+
+    def test_the_directory_named_in_the_message_is_the_one_searched(self):
+        # The refusal tells an operator where to look. If the loader searched
+        # somewhere else, the message would send them to a directory that was
+        # never consulted, and no other test here would notice: every case
+        # either reads the message or reads the filesystem, not both.
+        import tempfile
+
+        root = tempfile.mkdtemp()
+        self.addCleanup(lambda: __import__("shutil").rmtree(root, ignore_errors=True))
+        os.makedirs(os.path.join(root, *binding.BINDING_DIRECTORY.split("/")))
+        with open(
+            os.path.join(root, *(binding.BINDING_DIRECTORY.split("/") + ["m.json"])),
+            "w",
+            encoding="utf-8",
+        ) as handle:
+            json.dump(MAPPING, handle)
+        self.assertIsNotNone(binding.load_mapping(root))
+
+    def test_the_declared_directory_uses_forward_slashes_on_every_platform(self):
+        # The message is part of the contract with the operator and must not
+        # change shape between runners. Written as a literal rather than joined
+        # with os.sep, so there is nothing to convert and nothing to get wrong
+        # on the platform the local suite does not run on.
+        self.assertEqual(binding.BINDING_DIRECTORY, "core/binding")
+        self.assertIn("core/binding", binding.NO_MAPPING)
+        self.assertNotIn("\\", binding.NO_MAPPING)
 
     def test_the_binding_layer_agrees_with_the_declaration(self):
         found = binding.load_mapping(REPO_ROOT)

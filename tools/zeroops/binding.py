@@ -66,11 +66,13 @@ import os
 
 POINTER_PROPERTY = "toolListPointer"
 
-BINDING_DIRECTORY = os.path.join("core", "binding")
+BINDING_DIRECTORY = "core/binding"
+
+BINDING_SEGMENTS = BINDING_DIRECTORY.split("/")
 
 NO_MAPPING = (
     "no capability mapping was found under %s, so nothing declares where an "
-    "emitted binding carries its tool list" % BINDING_DIRECTORY.replace(os.sep, "/")
+    "emitted binding carries its tool list" % BINDING_DIRECTORY
 )
 
 NO_POINTER = (
@@ -161,7 +163,7 @@ def load_mapping(root):
     this repository is in until T2.04 lands. That is a refusal, not an
     exemption.
     """
-    directory = os.path.join(root, "core", "binding")
+    directory = os.path.join(root, *BINDING_SEGMENTS)
     if not os.path.isdir(directory):
         return None
     for name in sorted(os.listdir(directory)):
