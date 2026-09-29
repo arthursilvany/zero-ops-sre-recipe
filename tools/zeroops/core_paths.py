@@ -360,9 +360,15 @@ def check(root=None, declaration=None):
     with open(os.path.join(root, SCHEMA_PATH), "r", encoding="utf-8") as handle:
         schema = json.load(handle)
     Draft202012Validator.check_schema(schema)
-    for error in Draft202012Validator(schema).iter_errors(declaration):
-        pointer = "/" + "/".join(str(p) for p in error.absolute_path)
-        problems.append("%s#%s: %s" % (DECLARATION_PATH, pointer, error.message))
+    # Routed through the same finding builder the validator uses, rather than
+    # echoing error.message, which quotes the failing value. The declaration is
+    # a repository file today, so nothing secret is expected in it; that is a
+    # fact about the input rather than about this gate, and a rule that holds
+    # only while its input stays benign is not a rule (SEC-017, NEG-K).
+    from . import validate as _validate
+
+    for finding in _validate.structural_findings(declaration, schema):
+        problems.append(finding.render(DECLARATION_PATH))
 
     if problems:
         # A structurally invalid declaration cannot be reasoned about; the
