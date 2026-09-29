@@ -57,6 +57,23 @@ deployment time, which is User Story 5. Wiring a gate now would scan an empty
 set, and a scan of nothing reports nothing and is indistinguishable from a clean
 result. The deployment path calls this instead, and until then the negative
 suite is where it is exercised.
+
+Why a missing location has two messages
+---------------------------------------
+
+The pinned runtime, checked at the commit in `deploy/upstream.lock`, accepts no
+explicit tool list at all: its agent definition controls reach through an access
+level and an action mode, and enumerates no tool. So `toolListPointer` has
+nothing to point at, and every binding emitted for that runtime fails NEG-D.
+
+That refusal is correct and must stay. What it must not do is look like an
+unfinished mapping. A pointer nobody has written yet and a pointer that cannot
+exist both produce an absent property, and an operator reading `declares no
+toolListPointer` would reasonably go and write one. `toolListUnavailable` makes
+the second case a declaration, with the reason and the version it was observed
+in, so the refusal names a finding instead of an omission. It changes nothing
+about the outcome: NEG-D still refuses, and the read-only guarantee falls back
+to where SEC-001 already put it, the RBAC grant.
 """
 
 from __future__ import annotations
@@ -78,6 +95,22 @@ NO_MAPPING = (
 NO_POINTER = (
     "the capability mapping declares no %s, so the binding layer does not say "
     "where an emitted binding carries its tool list" % POINTER_PROPERTY
+)
+
+UNAVAILABLE_PROPERTY = "toolListUnavailable"
+
+DECLARED_UNAVAILABLE = (
+    "the capability mapping declares that runtime version %s accepts no explicit "
+    "tool list, so no emitted binding for it can satisfy NEG-D. This is a recorded "
+    "finding rather than an unfinished mapping, and it is still a refusal: the "
+    "containment NEG-D provides has to come from the RBAC grant instead (SEC-001)"
+)
+
+CONFLICTING_LOCATION = (
+    "the capability mapping declares both %s and %s. One says where the tool list "
+    "is and the other says the runtime has no such thing; nothing can act on both, "
+    "and guessing which is current would make the refusal depend on the order they "
+    "were written in" % (POINTER_PROPERTY, UNAVAILABLE_PROPERTY)
 )
 
 ABSENT = "the emitted binding has nothing at %s, so it carries no tool list"
@@ -188,6 +221,11 @@ def tool_list_findings(emitted, mapping):
     if mapping is None:
         return [NO_MAPPING]
     pointer = mapping.get(POINTER_PROPERTY)
+    unavailable = mapping.get(UNAVAILABLE_PROPERTY)
+    if pointer and unavailable:
+        return [CONFLICTING_LOCATION]
+    if unavailable:
+        return [DECLARED_UNAVAILABLE % unavailable.get("observedInRuntimeVersion")]
     if not pointer:
         return [NO_POINTER]
     if not pointer.startswith("/"):

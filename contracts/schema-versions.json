@@ -46,8 +46,8 @@
     },
     {
       "schema": "capability-mapping",
-      "version": "1.1.0",
-      "contentDigest": "a4072cf1c9c4ab052623a0c81c39784ba0d4d62b61066b631b01574e03a4af80",
+      "version": "1.2.0",
+      "contentDigest": "2987a5cc45cdcdbedb20d88749166141a32aa7e00f918967199c5deb7212786b",
       "history": [
         {
           "version": "1.0.0",
@@ -67,6 +67,34 @@
           ],
           "migration": "Change schemaVersion from 1.0.0 to 1.1.0. Nothing else in an existing mapping needs to change. Optionally add toolListPointer, naming where a binding emitted for this runtime carries its explicit tool list; without it the NEG-D check refuses every binding emitted for this runtime, which is the fail-closed state and not an exemption.",
           "rationale": "Added toolListPointer so the binding layer can state where an emitted binding carries its tool list. NEG-D has to read that list out of a runtime-shaped document, and nothing under contracts/ may name a runtime's properties (FR-04). The alternative was for the checking code to search an arbitrary document for something list-shaped, which is the inference the call-site check already refused to make: a check that guesses its own subject cannot distinguish an absent list from one it failed to look for. Versioned as a minor change because the contract change is purely additive and optional. The mandatory version-string update is recorded as a breaking change anyway, because it is what a consumer's untouched document actually experiences, and a register claiming nothing breaks while the validator refuses their file would be the register lying about the validator."
+        },
+        {
+          "version": "1.2.0",
+          "date": "2026-09-29",
+          "breakingChanges": [
+            {
+              "change": "A mapping must now declare schemaVersion 1.2.0. The version is pinned with const, so a document still declaring 1.1.0 is refused with a version mismatch.",
+              "affects": "/schemaVersion"
+            },
+            {
+              "change": "A mapping whose verificationState is 'reconciled' must now carry reconciledCapabilitySetHash. A reconciled mapping written against 1.1.0 has no such property and is refused until it is added or the state is set back to 'unverified'. This is deliberate: the missing digest is the condition the field exists to make visible, so accepting the document unchanged would defeat the change.",
+              "affects": "/reconciledCapabilitySetHash"
+            },
+            {
+              "change": "A mapping whose verificationState is 'reconciled' must now classify at least one capability. A reconciled mapping with an empty entries array is refused.",
+              "affects": "/entries"
+            },
+            {
+              "change": "A mapping whose verificationState is 'unverified' must not carry reconciledCapabilitySetHash, matching the existing prohibition on reconciledAt.",
+              "affects": "/reconciledCapabilitySetHash"
+            },
+            {
+              "change": "Nothing stopped being accepted by this addition: toolListUnavailable is optional. It is recorded here because a mapping that omits toolListPointer now has two meanings, and a consumer reading an untouched 1.1.0 document can no longer assume the absence was an omission.",
+              "affects": "/toolListUnavailable"
+            }
+          ],
+          "migration": "Change schemaVersion from 1.1.0 to 1.2.0. An unverified mapping needs nothing else. A reconciled mapping must add reconciledCapabilitySetHash, the digest of the capability set the named runtime version advertised when the gate last ran, and must classify at least one capability; if neither is available, set verificationState back to 'unverified' and remove reconciledAt, which is the accurate description of a mapping nothing has reconciled.",
+          "rationale": "FR-51 requires the reconciled capability set to be recorded as a hash per runtime version, and nothing in the schema carried it. reconciledAt said a gate ran; no field said what it saw, so a runtime that gained a capability between two runs of the same version produced a document still stamped reconciled that no longer described it. The same reasoning closes the empty-entries case: a reconciled mapping that classifies nothing is indistinguishable from a gate that never ran. toolListUnavailable answers the same question one layer down. The pinned runtime accepts no explicit tool list of any kind, so toolListPointer has nothing to name and every binding emitted for it fails NEG-D; that refusal is correct, but an absent pointer already meant 'nobody has written one yet', and the two states were identical from outside. Minor because the added fields and the tightened branch apply only to the reconciled state, which no document in this repository is in."
         }
       ]
     },
