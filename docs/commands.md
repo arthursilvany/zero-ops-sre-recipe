@@ -135,6 +135,34 @@ What a failure here means: reverting any single guard in this repository makes t
 command fail, and the failure names the guard. That property is what the command is for,
 and it is verified by mutation rather than assumed.
 
+### Requiring the gate on the default branch
+
+Running the gate in CI is not the same as requiring it. A fork adopting this framework
+should also protect its default branch, otherwise a pull request can be merged while the
+gate is red, and the gate becomes a report rather than a gate.
+
+```powershell
+gh api -X PUT repos/OWNER/REPO/branches/main/protection --input protection.json
+gh api -X POST repos/OWNER/REPO/branches/main/protection/enforce_admins
+```
+
+`protection.json` lists every job name from `verify.yml` under
+`required_status_checks.contexts`, with `strict` set to true so a branch must be current
+with the default branch before it merges.
+
+The second call is the one that matters and is easy to skip. Without it a repository
+administrator still pushes straight past every required check, and the account doing the
+merging in a small project is usually an administrator, so the protection applies to
+nobody. Confirm it by attempting a direct push and reading the refusal:
+
+```text
+remote: error: GH006: Protected branch update failed for refs/heads/main.
+remote: - 5 of 5 required status checks are expected.
+```
+
+A push that reports `Bypassed rule violations` and then succeeds means the checks are
+configured but not enforced.
+
 ## Check the core declaration
 
 ```powershell
