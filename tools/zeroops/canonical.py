@@ -205,6 +205,31 @@ def load(text):
         raise CanonicalisationError("the document is not valid JSON: %s" % exc.msg)
 
 
+def text_digest(text):
+    """Return the lowercase hex SHA-256 over an NFC-normalised string.
+
+    For a value that is text rather than a document: a catalogued query, for
+    instance. The canonicalisation rules above apply to JSON structure and have
+    nothing to say about a bare string, but the normalisation step does, and
+    for the same reason. A query authored on one platform and verified on
+    another must not fail integrity because the two spellings of the same
+    characters differ.
+
+    Deliberately not `digest(text)`. Passing a string to the document digest
+    would canonicalise it as a JSON string, quotes and escapes included, so the
+    two functions would disagree about what was hashed while both returning a
+    plausible value.
+    """
+    if not isinstance(text, str):
+        raise CanonicalisationError(
+            "a text digest is defined over a string; %s was supplied."
+            % type(text).__name__
+        )
+    return hashlib.sha256(
+        unicodedata.normalize("NFC", text).encode("utf-8")
+    ).hexdigest()
+
+
 def digest(document, hash_field=None):
     """Return the lowercase hex SHA-256 over the canonical form.
 
