@@ -89,7 +89,7 @@ FIXTURES = {
         },
     },
     "capability-mapping": {
-        "schemaVersion": "1.1.0",
+        "schemaVersion": "1.2.0",
         "runtimeName": "example-runtime",
         "runtimeVersion": "1.0.0",
         "verificationState": "unverified",
@@ -440,10 +440,77 @@ class TheCapabilityMappingNamesNoRuntime(unittest.TestCase):
         with self.assertRaises(jsonschema.ValidationError):
             validator("capability-mapping").validate(document)
 
+    def test_a_reconciled_mapping_must_say_what_it_saw(self):
+        """A timestamp says a gate ran. Without the digest nothing says what
+        the runtime advertised, so a capability added between two runs of the
+        same version leaves the document still stamped reconciled."""
+        document = valid("capability-mapping")
+        document["verificationState"] = "reconciled"
+        document["reconciledAt"] = "2026-01-08T00:00:00Z"
+        with self.assertRaises(jsonschema.ValidationError):
+            validator("capability-mapping").validate(document)
+
+    def test_an_unverified_mapping_cannot_claim_a_capability_set(self):
+        document = valid("capability-mapping")
+        document["reconciledCapabilitySetHash"] = "a" * 64
+        with self.assertRaises(jsonschema.ValidationError):
+            validator("capability-mapping").validate(document)
+
+    def test_a_reconciled_mapping_cannot_classify_nothing(self):
+        """An empty reconciled mapping says the gate ran and found no
+        capability at all, which is what a gate that never ran looks like."""
+        document = valid("capability-mapping")
+        document["verificationState"] = "reconciled"
+        document["reconciledAt"] = "2026-01-08T00:00:00Z"
+        document["reconciledCapabilitySetHash"] = "a" * 64
+        document["entries"] = []
+        with self.assertRaises(jsonschema.ValidationError):
+            validator("capability-mapping").validate(document)
+
+    def test_an_unverified_mapping_may_classify_nothing(self):
+        """The control for the case above, and the state the binding layer in
+        this repository is actually in."""
+        document = valid("capability-mapping")
+        document["entries"] = []
+        validator("capability-mapping").validate(document)
+
     def test_a_reconciled_mapping_with_a_timestamp_is_accepted(self):
         document = valid("capability-mapping")
         document["verificationState"] = "reconciled"
         document["reconciledAt"] = "2026-01-08T00:00:00Z"
+        document["reconciledCapabilitySetHash"] = "a" * 64
+        validator("capability-mapping").validate(document)
+
+    def test_an_uppercase_capability_set_digest_is_rejected(self):
+        document = valid("capability-mapping")
+        document["verificationState"] = "reconciled"
+        document["reconciledAt"] = "2026-01-08T00:00:00Z"
+        document["reconciledCapabilitySetHash"] = "A" * 64
+        with self.assertRaises(jsonschema.ValidationError):
+            validator("capability-mapping").validate(document)
+
+    def test_a_declared_tool_list_absence_needs_a_reason_and_a_version(self):
+        document = valid("capability-mapping")
+        document["toolListUnavailable"] = {"reason": "x" * 40}
+        with self.assertRaises(jsonschema.ValidationError):
+            validator("capability-mapping").validate(document)
+
+    def test_a_one_word_reason_is_rejected(self):
+        """A reason nobody had to write is the same as no reason."""
+        document = valid("capability-mapping")
+        document["toolListUnavailable"] = {
+            "reason": "none",
+            "observedInRuntimeVersion": "1.0.0",
+        }
+        with self.assertRaises(jsonschema.ValidationError):
+            validator("capability-mapping").validate(document)
+
+    def test_a_complete_declared_absence_is_accepted(self):
+        document = valid("capability-mapping")
+        document["toolListUnavailable"] = {
+            "reason": "x" * 40,
+            "observedInRuntimeVersion": "1.0.0",
+        }
         validator("capability-mapping").validate(document)
 
     def test_an_unpinned_runtime_version_is_rejected(self):

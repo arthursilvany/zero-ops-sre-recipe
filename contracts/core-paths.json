@@ -92,9 +92,8 @@
     "binding": [
       {
         "path": "core/binding/",
-        "status": "planned",
-        "purpose": "Azure SRE Agent binding. The only path where a runtime identifier may appear (FR-04, CON-03, ADR-0001).",
-        "materialisedBy": "T2.04"
+        "status": "present",
+        "purpose": "Azure SRE Agent binding. The only path where a runtime identifier may appear (FR-04, CON-03, ADR-0001)."
       }
     ],
     "frameworkOwned": [

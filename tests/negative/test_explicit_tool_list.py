@@ -37,7 +37,7 @@ POINTER = "/toolConfiguration/allowedTools"
 # purpose: NFR-02 forbids a customer environment identifier in a committed file,
 # and FR-04 keeps a real runtime's names out of everything but core/binding/.
 MAPPING = {
-    "schemaVersion": "1.1.0",
+    "schemaVersion": "1.2.0",
     "runtimeName": "example-runtime",
     "runtimeVersion": "1.0.0",
     "verificationState": "unverified",
@@ -252,15 +252,65 @@ class TheCheckFailsClosedOnTheBindingLayer(unittest.TestCase):
         self.assertEqual(len(set(messages)), 3, messages)
 
 
+class ADeclaredAbsenceIsNotAnOmission(unittest.TestCase):
+    """A runtime that accepts no tool list and a mapping nobody finished both
+    leave the pointer absent. Both must refuse, and they must not say the same
+    thing: one is a finding, the other is work.
+    """
+
+    ABSENT = {
+        "reason": "x" * 40,
+        "observedInRuntimeVersion": "1.0.1",
+    }
+
+    def unavailable(self, **overrides):
+        document = mapping()
+        del document[binding.POINTER_PROPERTY]
+        document[binding.UNAVAILABLE_PROPERTY] = dict(self.ABSENT, **overrides)
+        return document
+
+    def test_a_declared_absence_still_refuses(self):
+        findings = binding.tool_list_findings(emitted(), self.unavailable())
+        self.assertEqual(len(findings), 1)
+
+    def test_it_does_not_read_as_a_missing_pointer(self):
+        declared = binding.tool_list_findings(emitted(), self.unavailable())[0]
+        silent = mapping()
+        del silent[binding.POINTER_PROPERTY]
+        self.assertNotEqual(declared, binding.tool_list_findings(emitted(), silent)[0])
+
+    def test_the_message_names_the_version_the_absence_was_observed_in(self):
+        findings = binding.tool_list_findings(
+            emitted(), self.unavailable(observedInRuntimeVersion="9.9.9")
+        )
+        self.assertIn("9.9.9", findings[0])
+
+    def test_declaring_both_is_refused_rather_than_resolved(self):
+        """Ordering decides the answer otherwise, and a check whose result
+        depends on which property it looked at first is not a check."""
+        document = self.unavailable()
+        document[binding.POINTER_PROPERTY] = "/tools"
+        findings = binding.tool_list_findings(emitted(), document)
+        self.assertEqual(len(findings), 1)
+        self.assertIn(binding.POINTER_PROPERTY, findings[0])
+        self.assertIn(binding.UNAVAILABLE_PROPERTY, findings[0])
+
+    def test_a_valid_pointer_is_still_accepted(self):
+        """The control. Without it every assertion above would hold for an
+        implementation that refused every binding unconditionally."""
+        self.assertEqual(binding.tool_list_findings(emitted(), mapping()), [])
+
+
 class TheRepositoryIsInTheStateItDeclares(unittest.TestCase):
     """A tripwire on the binding layer, driven by the core declaration.
 
-    Today core/binding/ is declared planned, so load_mapping finds nothing and
-    every emitted binding is refused. When T2.04 materialises it, this test
-    stops asserting the planned branch and starts requiring the mapping to
-    declare where the tool list lives, which is the one thing T2.04 could
-    otherwise ship without and leave NEG-D permanently fail-closed against an
-    empty set.
+    The branch taken follows core-paths.json rather than a constant here, so
+    the test keeps describing the repository as the declaration changes. While
+    core/binding/ was planned, load_mapping found nothing and every emitted
+    binding was refused. Now that T2.04 has materialised it, the same test
+    requires the mapping to say where the tool list lives or to declare that
+    this runtime has none, which is the one thing T2.04 could otherwise ship
+    without and leave NEG-D permanently fail-closed against an empty set.
     """
 
     def status(self):
@@ -301,16 +351,86 @@ class TheRepositoryIsInTheStateItDeclares(unittest.TestCase):
         found = binding.load_mapping(REPO_ROOT)
         if self.status() == "planned":
             self.assertIsNone(found)
-        else:
-            self.assertIsNotNone(
-                found,
-                "core/binding/ is declared present but holds no capability mapping",
-            )
-            self.assertTrue(
-                found.get(binding.POINTER_PROPERTY),
-                "the capability mapping must declare where an emitted binding "
-                "carries its tool list, or NEG-D can never accept anything",
-            )
+            return
+
+        self.assertIsNotNone(
+            found,
+            "core/binding/ is declared present but holds no capability mapping",
+        )
+        # Exactly one of the two locations must be declared: with neither,
+        # NEG-D refuses every binding and nothing says whether that is a
+        # finding or an omission; with both, the refusal depends on which
+        # property is read first.
+        #
+        # Asserted through the module that owns the rule rather than
+        # re-derived here. A boolean written in this test can only ever see
+        # the one document on disk, where 'exactly one' and 'at least one'
+        # are the same claim, so a weakened form of it would go unnoticed.
+        # binding.py refuses both states, and those refusals are exercised
+        # against synthetic documents above.
+        findings = binding.tool_list_findings(emitted(), found)
+        self.assertNotIn(
+            binding.CONFLICTING_LOCATION,
+            findings,
+            "the shipped mapping declares both a tool-list location and its "
+            "absence",
+        )
+        self.assertNotIn(
+            binding.NO_POINTER,
+            findings,
+            "the shipped mapping declares neither a tool-list location nor "
+            "its absence",
+        )
+
+    def test_the_mapping_names_the_runtime_it_maps(self):
+        """The binding layer is the one place FR-04 allows a runtime to be
+        named, and a mapping that names none cannot be reconciled against one.
+
+        The FR-04 counter-check in core_paths only requires some file under
+        core/binding/ to carry an identifier, which the README already does on
+        its own. So a mapping whose runtimeName stopped identifying a runtime
+        would leave check-core green, every schema valid, and runtimeVersion
+        and observedInRuntimeVersion attached to nothing nameable.
+        """
+        found = binding.load_mapping(REPO_ROOT)
+        if self.status() == "planned" or not found:
+            self.skipTest("core/binding/ has not been materialised")
+        declaration = core_paths.load_declaration(REPO_ROOT)
+        terms = [item["term"] for item in declaration["runtimeIdentifiers"]]
+        self.assertTrue(terms, "the declaration lists no runtime identifiers")
+        name = found.get("runtimeName", "")
+        self.assertTrue(
+            any(term.lower() in name.lower() for term in terms),
+            "runtimeName %r matches none of the declared runtime identifiers "
+            "%s. Either the mapping no longer says which runtime it maps, or "
+            "the declared list no longer describes this runtime."
+            % (name, ", ".join(sorted(terms))),
+        )
+
+    def test_a_declared_absence_still_refuses(self):
+        """The declaration records why NEG-D cannot pass. It must not become a
+        way for it to pass anyway."""
+        found = binding.load_mapping(REPO_ROOT)
+        if self.status() == "planned" or not found:
+            self.skipTest("core/binding/ has not been materialised")
+        if not found.get(binding.UNAVAILABLE_PROPERTY):
+            self.skipTest("this runtime declares a tool-list location")
+        findings = binding.tool_list_findings(emitted(), found)
+        self.assertEqual(len(findings), 1)
+        self.assertIn("accepts no explicit tool list", findings[0])
+
+    def test_the_declared_absence_names_the_version_it_was_observed_in(self):
+        """A pin raised without re-checking must leave the two disagreeing
+        rather than carrying the old finding forward under a new version."""
+        found = binding.load_mapping(REPO_ROOT)
+        if self.status() == "planned" or not found:
+            self.skipTest("core/binding/ has not been materialised")
+        unavailable = found.get(binding.UNAVAILABLE_PROPERTY)
+        if not unavailable:
+            self.skipTest("this runtime declares a tool-list location")
+        self.assertEqual(
+            unavailable["observedInRuntimeVersion"], found["runtimeVersion"]
+        )
 
     def test_a_binding_is_refused_today_for_the_declared_reason(self):
         if self.status() != "planned":

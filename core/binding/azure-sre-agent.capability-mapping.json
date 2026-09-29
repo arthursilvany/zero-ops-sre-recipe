@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "1.2.0",
+  "runtimeName": "azure-sre-agent",
+  "runtimeVersion": "1.0.1",
+  "verificationState": "unverified",
+  "toolListUnavailable": {
+    "reason": "The pinned template layer's agent definition and its expected-configuration file were read at the commit recorded in deploy/upstream.lock. Reach is controlled by an access level and an action mode, and by which connectors, skills, subagents and hooks are attached. No property enumerates a tool, so there is no location for toolListPointer to name and no identifier for an entry to map to.",
+    "observedInRuntimeVersion": "1.0.1"
+  },
+  "description": "Capability mapping for the pinned Azure SRE Agent template layer. It classifies nothing, and that is a measured result rather than an unfinished file: the runtime does not enumerate tool identifiers, so there is nothing to map to without inventing names. README.md in this directory records what was looked at and what would change this.",
+  "entries": []
+}
