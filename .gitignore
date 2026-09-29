@@ -82,3 +82,13 @@ node_modules/
 Thumbs.db
 desktop.ini
 .DS_Store
+
+# NOTE: 'prd.md' is deliberately NOT ignored. It is the brief this framework
+# was built against, it is declared in contracts/core-paths.json as a present
+# repository-meta path, and it is tracked, so an ignore line here would change
+# nothing while telling the next reader the file is excluded. It was reviewed
+# against the public-repository constraint and carries no secret material, no
+# tenant identifier and no customer name; the local paths and the reference
+# implementation's name were replaced with placeholders. Removing it from the
+# tip would break the core declaration.
+
