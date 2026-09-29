@@ -25,6 +25,7 @@ suite that silently stopped being discovered is indistinguishable from a suite
 that passed, and only one of those is worth reporting.
 """
 
+import fnmatch
 import os
 import re
 import subprocess
@@ -157,6 +158,64 @@ def repository_root(start=None):
         here = parent
 
 
+NEGATIVE_AREA = "negative"
+
+
+def area_directory(root, area=None):
+    """The directory discovery starts from, refusing an area that is absent.
+
+    An area that does not exist has to be a refusal rather than an empty run.
+    `--negative` names a release gate, and a gate pointed at a directory
+    somebody moved would report success having run nothing.
+    """
+    start = os.path.join(root, "tests")
+    if area:
+        start = os.path.join(start, area)
+        if not os.path.isdir(start):
+            raise LocalTestError(
+                "no tests/%s directory in %s. The negative suite is a release "
+                "gate, so a missing suite is a failure rather than an empty "
+                "report." % (area, root)
+            )
+    return start
+
+
+def module_names_on_disk(root, start, pattern="test_*.py"):
+    """Every test module the filesystem says should be collected."""
+    names = set()
+    for current, _, files in os.walk(start):
+        for name in files:
+            if not fnmatch.fnmatch(name, pattern):
+                continue
+            relative = os.path.relpath(os.path.join(current, name), root)
+            names.add(relative[: -len(".py")].replace(os.sep, "."))
+    return names
+
+
+def module_names_collected(suite):
+    """Every test module discovery actually produced a test from."""
+    names = set()
+    for item in suite:
+        if isinstance(item, unittest.TestSuite):
+            names |= module_names_collected(item)
+        else:
+            names.add(type(item).__module__)
+    return names
+
+
+def uncollected_modules(root, start, suite, pattern="test_*.py"):
+    """Files that exist and produced nothing.
+
+    Counting tests cannot see this. A module that stops being collected, by a
+    rename, a pattern that no longer matches or a file with no test class
+    left in it, lowers the total and lowers nothing else. The total was never
+    compared against anything, so it went down and the run stayed green.
+    """
+    return sorted(
+        module_names_on_disk(root, start, pattern) - module_names_collected(suite)
+    )
+
+
 def count_tests(suite):
     total = 0
     for item in suite:
@@ -167,19 +226,26 @@ def count_tests(suite):
     return total
 
 
-def run_in_process(root, pattern="test_*.py", stream=None):
+def run_in_process(root, pattern="test_*.py", stream=None, area=None):
     """Discover and run. Returns (exit code, tests run).
 
     Zero discovered is a non-zero exit. So is a discovery error: unittest
     represents an unimportable test module as a synthetic failing test, which
     keeps it from vanishing, but only if the count is not the sole thing
-    checked.
+    checked. And so is a module that exists on disk but produced no test,
+    which lowers the count without failing anything.
     """
     stream = stream or sys.stderr
     loader = unittest.TestLoader()
     try:
+        start = area_directory(root, area)
+    except LocalTestError as exc:
+        stream.write("error: %s\n" % exc)
+        return 2, 0
+    where = os.path.relpath(start, root).replace(os.sep, "/")
+    try:
         suite = loader.discover(
-            start_dir=os.path.join(root, "tests"), pattern=pattern, top_level_dir=root
+            start_dir=start, pattern=pattern, top_level_dir=root
         )
     except ImportError as exc:
         # Discovery that cannot start is the same failure as discovery that
@@ -187,17 +253,27 @@ def run_in_process(root, pattern="test_*.py", stream=None):
         # it would otherwise be the one way to get an exit code that says
         # neither pass nor fail.
         stream.write(
-            "error: test discovery could not start under tests/: %s\n" % exc
+            "error: test discovery could not start under %s/: %s\n" % (where, exc)
         )
         return 2, 0
     discovered = count_tests(suite)
     if discovered == 0:
         stream.write(
-            "error: discovery found no tests under tests/. A suite that is not "
+            "error: discovery found no tests under %s/. A suite that is not "
             "discovered is indistinguishable from a suite that passed, so this "
-            "is a failure rather than an empty report.\n"
+            "is a failure rather than an empty report.\n" % where
         )
         return 2, 0
+
+    missing = uncollected_modules(root, start, suite, pattern)
+    if missing:
+        stream.write(
+            "error: %d test module(s) under %s/ produced no test: %s. A module "
+            "that stops being collected lowers the count and fails nothing, so "
+            "it is reported here rather than absorbed.\n"
+            % (len(missing), where, ", ".join(missing))
+        )
+        return 2, discovered
 
     runner = unittest.TextTestRunner(stream=stream, verbosity=1)
     result = runner.run(suite)
@@ -211,7 +287,8 @@ def _child(argv):
     forbid_network()
     root = argv[0]
     pattern = argv[1] if len(argv) > 1 else "test_*.py"
-    code, _ = run_in_process(root, pattern)
+    area = argv[2] if len(argv) > 2 and argv[2] else None
+    code, _ = run_in_process(root, pattern, area=area)
     return code
 
 
@@ -229,7 +306,7 @@ def already_running(environ=None):
     return bool(environ.get(CHILD_FLAG))
 
 
-def run_local(pattern="test_*.py", start=None, out=None, err=None):
+def run_local(pattern="test_*.py", start=None, out=None, err=None, area=None):
     """Spawn the child with a scrubbed environment and report what was removed.
 
     A subprocess rather than an in-process run, because the environment has to
@@ -249,6 +326,9 @@ def run_local(pattern="test_*.py", start=None, out=None, err=None):
             "exercises this command."
         )
     root = repository_root(start)
+    # Refused here as well as in the child, so a missing suite is reported
+    # before a process is spawned to discover nothing in it.
+    area_directory(root, area)
 
     environ = scrub_environment(os.environ)
     removed = scrubbed_names(os.environ)
@@ -260,6 +340,11 @@ def run_local(pattern="test_*.py", start=None, out=None, err=None):
     environ[CHILD_FLAG] = "1"
 
     out.write("Running the offline suite from %s\n" % root)
+    if area:
+        out.write(
+            "Restricted to tests/%s, the guards whose failure means a "
+            "prohibition is gone.\n" % area
+        )
     out.write(
         "Credential-shaped variables removed from the child environment: %s\n"
         % (", ".join(removed) if removed else "none present")
@@ -268,18 +353,21 @@ def run_local(pattern="test_*.py", start=None, out=None, err=None):
     out.flush()
 
     completed = subprocess.run(
-        [sys.executable, "-m", "zeroops.localtest", root, pattern],
+        [sys.executable, "-m", "zeroops.localtest", root, pattern, area or ""],
         cwd=root,
         env=environ,
     )
     if completed.returncode == 0:
-        out.write("Offline suite passed with no credentials and no network.\n")
+        out.write(
+            "%s passed with no credentials and no network.\n"
+            % ("Negative suite" if area else "Offline suite")
+        )
         out.flush()
     else:
         err.write(
-            "Offline suite failed. The run had no credentials and no network, "
+            "%s failed. The run had no credentials and no network, "
             "so a failure here is a failure of the code and not of the "
-            "environment.\n"
+            "environment.\n" % ("Negative suite" if area else "Offline suite")
         )
     return completed.returncode
 

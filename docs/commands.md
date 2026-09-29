@@ -96,13 +96,44 @@ asserted:
   declaration checks and is not covered, which is stated rather than left to be
   discovered.
 - **Non-vacuous.** Discovering zero tests is a failure, not an empty report. A suite that
-  stopped being discovered looks identical to a suite that passed.
+  stopped being discovered looks identical to a suite that passed. The same applies to a
+  single module: a file under the start directory that produces no test is reported by
+  name, because a module that stops being collected lowers the count and fails nothing.
 
 `--local` is required. There is one test mode today and it is the offline one; naming it
 keeps a later mode that does reach a subscription from being run by accident.
 
 Run it from inside a clone. Invoked elsewhere it refuses by name rather than finding no
 tests and reporting success.
+
+`--pattern` changes the discovery pattern. It defaults to `test_*.py` and exists for
+narrowing a run during development, not for the gate.
+
+## Run the release gate
+
+```powershell
+.\bin\zeroops.ps1 test --local --negative
+```
+
+`--negative` restricts the run to `tests/negative`, the guards whose failure means a
+prohibition is gone rather than a feature being broken. This is the gate a release is
+held against (FR-40, SC-06).
+
+It inherits every property of the offline suite, which is the point: the gate needs no
+credentials, no network and no Azure subscription, so it runs on any checkout of any
+fork, including one belonging to somebody evaluating the framework before adopting it.
+
+Two failure modes are refused rather than reported as success:
+
+- A missing `tests/negative` directory is an error. A gate pointed at a directory
+  somebody moved would pass having run nothing.
+- A negative test module that exists but produces no test is an error, named. This is the
+  way a guard realistically disappears: not deleted, but renamed, or emptied of its last
+  test class, which lowers a total nobody was comparing against anything.
+
+What a failure here means: reverting any single guard in this repository makes this
+command fail, and the failure names the guard. That property is what the command is for,
+and it is verified by mutation rather than assumed.
 
 ## Check the core declaration
 

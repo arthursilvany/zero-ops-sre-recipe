@@ -90,6 +90,24 @@ def _subparsers_action():
     return holder["action"]
 
 
+def parser_flags():
+    """Every optional flag each command offers, as {command: {flag}}.
+
+    Derived from the parser rather than listed here on purpose: the point is
+    to compare the parser against the documentation, and a list written in
+    this file would only compare it against itself.
+    """
+    out = {}
+    for name, sub in _subparsers_action().choices.items():
+        flags = set()
+        for action in sub._actions:
+            for option in action.option_strings:
+                if option.startswith("--") and option != "--help":
+                    flags.add(option)
+        out[name] = flags
+    return out
+
+
 class TheCommandSurfaceIsWhatIsDocumented(unittest.TestCase):
     """Checked in both directions. An undocumented command is a surface nobody
     reviewed, which is the direction that happens without anyone choosing it."""
@@ -181,6 +199,109 @@ class TheCommandSurfaceIsWhatIsDocumented(unittest.TestCase):
         source = read(os.path.join(REPO_ROOT, "tools", "zeroops", "validate.py"))
         self.assertNotIn("pip install -e tools", source)
         self.assertIn("--require-hashes", source)
+
+
+class EveryFlagIsDocumented(unittest.TestCase):
+    """Commands were compared against the documentation. Flags were not.
+
+    `--negative` changes which suite a release gate runs. A flag that decides
+    what a gate covers is part of the surface a reviewer has to see, and it
+    was possible to add one, and to remove one, without the documentation
+    disagreeing.
+    """
+
+    def setUp(self):
+        self.doc = read(COMMANDS_DOC)
+
+    def test_the_expectation_is_not_empty(self):
+        """A parser that offered no flags would satisfy the check below
+        without anybody documenting anything."""
+        flags = parser_flags()
+        self.assertTrue(any(flags.values()), flags)
+
+    def test_every_flag_the_parser_offers_appears_in_the_documentation(self):
+        for command, flags in sorted(parser_flags().items()):
+            for flag in sorted(flags):
+                with self.subTest(command=command, flag=flag):
+                    self.assertIn(
+                        flag,
+                        self.doc,
+                        "%s %s is offered but documented nowhere" % (command, flag),
+                    )
+
+    def test_every_flag_in_a_documented_invocation_is_real(self):
+        """The other direction, restricted to lines a reader would copy.
+
+        Prose mentions pip's flags, which are not ours, so the reverse check
+        reads only the invocations. A documented flag that the parser does
+        not offer sends a reader to a command that fails.
+        """
+        offered = set()
+        for flags in parser_flags().values():
+            offered |= flags
+        invocations = re.findall(r"bin[\\/]zeroops(?:\.ps1)? ([^\n`]*)", self.doc)
+        self.assertTrue(invocations, "no invocations found; the check is vacuous")
+        seen = 0
+        for line in invocations:
+            for flag in re.findall(r"--[a-z][a-z0-9-]*", line):
+                seen += 1
+                with self.subTest(flag=flag):
+                    self.assertIn(flag, offered, "%s is documented but not offered" % flag)
+        self.assertGreater(seen, 0, "no flags appear in any invocation")
+
+    def test_the_negative_gate_flag_is_documented_with_its_purpose(self):
+        """Named specifically because this one is a release gate. Knowing the
+        flag exists is not the same as knowing failing it means a prohibition
+        is gone."""
+        self.assertIn("--negative", self.doc)
+
+    def test_the_negative_flag_appears_in_a_command_a_reader_would_copy(self):
+        """Presence anywhere in the document is too weak, and this repository
+        already learned that once with the install flags. Prose explaining why
+        a flag matters keeps mentioning it after the invocation has lost it,
+        so the document reports the gate exists while the command a reader
+        runs no longer reaches it.
+        """
+        invocations = re.findall(r"bin[\\/]zeroops(?:\.ps1)? ([^\n`]*)", self.doc)
+        self.assertTrue(
+            any("--negative" in line for line in invocations),
+            "--negative is mentioned but never shown in a command: %s" % invocations,
+        )
+
+
+class TheReleaseGateIsWiredIntoCI(unittest.TestCase):
+    """A gate nothing runs is a gate.
+
+    The command exists, the suite passes and the documentation describes it.
+    None of that makes a pull request fail. The workflow invoking the command
+    is the only part that does, and it is a separate file from everything
+    above, which is exactly the kind of gap that survives review.
+    """
+
+    def setUp(self):
+        self.workflow = read(
+            os.path.join(REPO_ROOT, ".github", "workflows", "verify.yml")
+        )
+
+    def test_a_job_invokes_the_negative_gate(self):
+        self.assertIn("test --local --negative", self.workflow)
+
+    def test_the_gate_has_a_job_name_of_its_own(self):
+        """Sharing a job with the offline suite would mean a red check could
+        not be read as 'a prohibition is gone' without opening the log."""
+        self.assertIn("Release gate", self.workflow)
+
+    def test_the_gate_installs_the_reviewed_dependency_closure(self):
+        """The same supply-chain flags as every other job. A gate that
+        installed dependencies loosely would be the weakest path into CI."""
+        self.assertIn("--require-hashes", self.workflow)
+        self.assertIn("--only-binary=:all:", self.workflow)
+
+    def test_the_gate_runs_the_shim_rather_than_unittest_directly(self):
+        """The command carries the credential scrub, the network refusal and
+        the fail-closed discovery checks. Invoking unittest instead would
+        leave all three untested in CI while the check still went green."""
+        self.assertIn("bin/zeroops test --local --negative", self.workflow)
 
 
 class TheDocumentedLintCoversEveryMarkdownFile(unittest.TestCase):
@@ -579,6 +700,169 @@ class DiscoveryIsNeverVacuous(unittest.TestCase):
         inner = unittest.TestSuite([unittest.FunctionTestCase(lambda: None)] * 3)
         outer = unittest.TestSuite([inner, unittest.TestSuite([inner])])
         self.assertEqual(localtest.count_tests(outer), 6)
+
+
+class TheReleaseGateFailsClosed(unittest.TestCase):
+    """`--negative` names a release gate, so every way it could pass having
+    checked nothing has to be a failure instead.
+
+    The subprocess pattern is inherited from DiscoveryIsNeverVacuous for the
+    same reason: discovery of a temporary `tests` package run in-process
+    resolves against the one this suite was loaded from.
+    """
+
+    PASSING = (
+        "import unittest\n"
+        "class T(unittest.TestCase):\n"
+        "    def test_x(self):\n"
+        "        self.assertTrue(True)\n"
+    )
+    NO_TEST_CLASS = "VALUE = 1\n"
+
+    def fixture(self, files, area="negative"):
+        import shutil
+        import tempfile
+
+        root = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, root, True)
+        tests = os.path.join(root, "tests")
+        os.makedirs(tests)
+        with open(os.path.join(tests, "__init__.py"), "w", encoding="utf-8"):
+            pass
+        if area is not None:
+            target = os.path.join(tests, area)
+            os.makedirs(target)
+            for name, body in files.items():
+                with open(os.path.join(target, name), "w", encoding="utf-8") as handle:
+                    handle.write(body)
+        return root
+
+    def discover(self, root, area="negative"):
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "import sys\n"
+                "from zeroops import localtest\n"
+                "code, n = localtest.run_in_process(\n"
+                "    sys.argv[1], stream=sys.stdout, area=sys.argv[2] or None)\n"
+                "print('RESULT %d %d' % (code, n))\n",
+                root,
+                area or "",
+            ],
+            cwd=REPO_ROOT,
+            env=dict(os.environ, PYTHONPATH=os.path.join(REPO_ROOT, "tools")),
+            capture_output=True,
+            text=True,
+        )
+        output = result.stdout + result.stderr
+        match = re.search(r"RESULT (\d+) (\d+)", output)
+        self.assertIsNotNone(match, "child produced no result: %s" % output)
+        return int(match.group(1)), int(match.group(2)), output
+
+    def test_a_negative_suite_with_one_test_passes(self):
+        """The control. A gate that failed on every tree would satisfy every
+        assertion below while proving nothing."""
+        root = self.fixture({"__init__.py": "", "test_guard.py": self.PASSING})
+        code, discovered, output = self.discover(root)
+        self.assertEqual(code, 0, output)
+        self.assertEqual(discovered, 1)
+
+    def test_a_missing_negative_directory_is_a_failure(self):
+        """A gate pointed at a directory somebody moved would otherwise pass
+        having run nothing."""
+        code, discovered, output = self.discover(self.fixture({}, area=None))
+        self.assertNotEqual(code, 0)
+        self.assertEqual(discovered, 0)
+        self.assertIn("release gate", output)
+
+    def test_an_empty_negative_directory_is_a_failure(self):
+        code, discovered, output = self.discover(self.fixture({"__init__.py": ""}))
+        self.assertNotEqual(code, 0)
+        self.assertIn("no tests", output)
+
+    def test_a_module_that_produces_no_test_is_reported_by_name(self):
+        """The realistic way a guard disappears. Not deleted: emptied of its
+        last test class, or renamed, which lowers a total nobody compares
+        against anything.
+        """
+        root = self.fixture(
+            {
+                "__init__.py": "",
+                "test_guard.py": self.PASSING,
+                "test_gone.py": self.NO_TEST_CLASS,
+            }
+        )
+        code, _, output = self.discover(root)
+        self.assertNotEqual(code, 0, output)
+        self.assertIn("test_gone", output)
+        self.assertIn("produced no test", output)
+
+    def test_the_real_negative_suite_collects_every_module_on_disk(self):
+        """Run against this repository rather than a fixture, because the
+        fixtures establish the check works and only this establishes it
+        holds here."""
+        start = localtest.area_directory(REPO_ROOT, localtest.NEGATIVE_AREA)
+        suite = unittest.TestLoader().discover(
+            start, pattern="test_*.py", top_level_dir=REPO_ROOT
+        )
+        self.assertEqual([], localtest.uncollected_modules(REPO_ROOT, start, suite))
+        self.assertGreater(localtest.count_tests(suite), 100)
+
+    def test_the_uncollected_check_can_detect(self):
+        """The control for the assertion above, which is satisfied by a
+        function that returns an empty list unconditionally."""
+        start = localtest.area_directory(REPO_ROOT, localtest.NEGATIVE_AREA)
+        empty = unittest.TestSuite()
+        self.assertTrue(localtest.uncollected_modules(REPO_ROOT, start, empty))
+
+    def test_the_negative_area_is_a_real_directory_in_this_repository(self):
+        self.assertTrue(
+            os.path.isdir(os.path.join(REPO_ROOT, "tests", localtest.NEGATIVE_AREA))
+        )
+
+
+class TheNegativeFlagReachesTheRunner(unittest.TestCase):
+    """The gate is only a gate if `--negative` actually narrows the run.
+
+    A flag that parses, is documented, and is named in the workflow while
+    silently running the full suite would leave every check above green: the
+    suite passes either way. So the flag is followed all the way from argv
+    into the argument `run_local` receives, rather than stopping at the
+    parser.
+    """
+
+    def invoke(self, argv):
+        seen = {}
+
+        def stub(pattern, area=None):
+            seen["pattern"] = pattern
+            seen["area"] = area
+            return 0
+
+        original = localtest.run_local
+        localtest.run_local = stub
+        self.addCleanup(setattr, localtest, "run_local", original)
+        code = validate.main(argv)
+        self.assertEqual(code, 0)
+        self.assertIn("area", seen)
+        return seen
+
+    def test_the_flag_selects_the_negative_area(self):
+        self.assertEqual(
+            self.invoke(["test", "--local", "--negative"])["area"],
+            localtest.NEGATIVE_AREA,
+        )
+
+    def test_without_the_flag_no_area_is_selected(self):
+        """The control. Without it the assertion above would also hold for a
+        runner that always ran the negative area."""
+        self.assertIsNone(self.invoke(["test", "--local"])["area"])
+
+    def test_the_selected_area_is_not_the_whole_suite(self):
+        """`area=None` means the whole tree, so the flag would be a no-op if
+        NEGATIVE_AREA were empty or None."""
+        self.assertTrue(localtest.NEGATIVE_AREA)
 
 
 class TheCommandRefusesRatherThanGuesses(unittest.TestCase):
