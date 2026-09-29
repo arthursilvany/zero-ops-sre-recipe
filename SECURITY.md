@@ -69,17 +69,32 @@ checked-out files.
 |---|---|---|---|
 | Full-history scan | [`.github/workflows/security-scan.yml`](.github/workflows/security-scan.yml) | Reports, after the push has landed | Every commit reachable from `HEAD` |
 | Client-side pre-push scan | [`tools/hooks/pre-push`](tools/hooks/pre-push) | Blocks, before the push leaves the machine | Every commit reachable from `HEAD` |
-| Platform push protection | GitHub | Blocks, at the remote | Credential patterns only |
+| Platform secret scanning | GitHub | Reports. Measured: did not block | Provider credential patterns only |
 
-Rules for all three live in a single file, [`.gitleaks.toml`](.gitleaks.toml), so the
-local check and the CI check cannot drift apart.
+Rules for the first two live in a single file, [`.gitleaks.toml`](.gitleaks.toml), so the
+local check and the CI check cannot drift apart. The third uses GitHub's own patterns and
+is outside that file.
 
-**Platform push protection is currently unavailable on this repository.** It requires
-GitHub Advanced Security on a private repository, and the API rejects the request with
-`Secret scanning is not available for this repository`. The consequences, the substitute
-control, and the trigger for re-enabling are recorded in
-[ADR-0005](docs/architecture/decisions/0005-secret-scanning-controls.md). Enabling it is a
-**precondition of making this repository public**, not a follow-up task.
+**Platform secret scanning and push protection are enabled on this repository**, and an
+API read confirms it:
+
+```sh
+gh api repos/<OWNER>/<REPO> --jq '.security_and_analysis'
+# secret_scanning: enabled
+# secret_scanning_push_protection: enabled
+```
+
+**Enabled is not blocking.** Pushing a synthetic, never-valid credential of a pattern
+GitHub recognises, with the local hook bypassed, was **not** rejected at the remote. The
+push succeeded and an alert was raised afterwards, with `push_protection_bypassed: false`.
+Detection works; the blocking step did not run. Two further settings,
+`secret_scanning_non_provider_patterns` and `secret_scanning_validity_checks`, were
+requested, returned `200`, and remained `disabled`.
+
+Treat the platform layer as a reporting control, and the pre-push hook plus the
+full-history workflow as the gates of record. The reasoning, the measurement and what
+would change it are in
+[ADR-0005](docs/architecture/decisions/0005-secret-scanning-controls.md).
 
 ### Enable the local check
 

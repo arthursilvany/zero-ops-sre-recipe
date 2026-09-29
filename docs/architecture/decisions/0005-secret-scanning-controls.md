@@ -141,3 +141,74 @@ publish, then enable both controls as part of publication.** Until then, `CONTRI
 forbids direct pushes to `main` by convention only, and convention is not enforcement.
 That gap is stated here rather than hidden, because an unenforced rule that reads like an
 enforced one is the more dangerous of the two.
+
+## Amendment, 2026-09-29: the blocked controls are now enabled, and one of them does not block
+
+The repository is public, which removes the root cause recorded above. Both controls that
+were rejected are now enabled, and both were verified rather than assumed.
+
+**Branch protection is enabled and enforced.** Five required status checks, linear
+history, no force pushes. Enforcement needed a second call: with `enforce_admins` unset,
+a push by an administrator succeeded while reporting `remote: Bypassed rule violations`,
+so the protection applied to nobody in a single-maintainer repository. After
+`POST /repos/<OWNER>/<REPO>/branches/main/protection/enforce_admins`, the same push was
+rejected with `GH006 ... 5 of 5 required status checks are expected`. The procedure and
+the two distinguishing refusal texts are in `docs/commands.md`.
+
+**Secret scanning is enabled. Push protection is enabled and did not block.** An API read
+returns `secret_scanning: enabled` and `secret_scanning_push_protection: enabled`. The
+measurement:
+
+| Probe | Local hook | Result at the remote | Alert raised |
+|---|---|---|---|
+| Random `ghp_`-shaped string | blocked the push | accepted with `--no-verify` | none |
+| Synthetic provider-pattern credential | blocked the push | accepted with `--no-verify` | yes, `push_protection_bypassed: false` |
+| Same, repeated minutes later | not exercised | accepted with `--no-verify` | yes |
+
+The first probe raised no alert, so it was never recognised as a secret and proves
+nothing: that pattern carries a checksum a random string cannot satisfy. It is recorded
+because an unrecognised probe and a working control produce the same observation, and
+only the alert count tells them apart.
+
+The second and third probes were recognised. Detection fired and the push still landed.
+The repeat rules out propagation delay, and `push_protection_bypassed: false` rules out
+the push having been waved through as an allowed bypass. The blocking step did not run.
+The cause is undetermined and is not asserted here.
+
+Two further settings, `secret_scanning_non_provider_patterns` and
+`secret_scanning_validity_checks`, were requested in the same call and in a call of their
+own. Both returned `200` and both remained `disabled`.
+
+Every probe used a synthetic value that was never valid, pushed to a throwaway branch
+that was deleted, with both alerts resolved as `used_in_tests`.
+
+### Consequence of this amendment
+
+The decision above does not change. Option 3 stays: the pre-push hook and the
+full-history workflow remain the gates of record, and the platform layer is a reporting
+control layered on top rather than the blocking control the original acceptance criterion
+assumed. That criterion asked for an API read, and an API read alone would have passed
+here while the control did nothing.
+
+This is the same failure this repository keeps finding, in a third place: a control that
+reports itself configured and cannot distinguish that from being effective. Branch
+protection did it, the negative-suite flag did it, and platform push protection does it
+now. The general rule stands: read the setting, then make the control refuse something.
+
+Under CON-11 this strengthens rather than weakens the recipe. A customer adopting it
+inherits a gate that functions without GitHub Advanced Security, on any plan, and does
+not inherit a dependency on a platform control whose blocking behaviour has to be
+measured per repository.
+
+**Not covered by the offline suite.** The state of these controls is a property of the
+remote, not of the tree, so the negative suite cannot assert it without a network and a
+credential. The check is a manual step in the operations guide rather than an automated
+one, and that is a stated limitation.
+
+### Revisit this amendment when
+
+- Platform push protection is observed to block a recognised pattern on this repository,
+  at which point the control table in `SECURITY.md` should say it blocks and the claim
+  should carry the date it was measured.
+- `secret_scanning_non_provider_patterns` or `secret_scanning_validity_checks` stops
+  silently returning `200` while staying disabled.
