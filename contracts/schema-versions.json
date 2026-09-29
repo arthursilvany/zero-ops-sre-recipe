@@ -141,6 +141,20 @@
       ]
     },
     {
+      "schema": "eligibility-rules",
+      "version": "1.0.0",
+      "contentDigest": "4fe68d808f3a5f7c38e007a3f4b89983fa606be3d2f871b67fc2df2abf4f878f",
+      "history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-09-29",
+          "breakingChanges": [],
+          "migration": "None required. This is the initial published version, so no consumer document predates it and nothing needs rewriting.",
+          "rationale": "Initial publication. FR-12 requires the eligibility rules to be published and to be the same rules the step reports on an empty result, which only holds while there is one source and a check that fails when a copy drifts from it. This schema is that source. It forbids an empty rule list, because a rule set with no rules would admit everything while still validating, and it requires whyEmpty on every rule, because a list that explains only itself tells an operator what was applied and not what to do about it."
+        }
+      ]
+    },
+    {
       "schema": "environment-binding",
       "version": "1.0.0",
       "contentDigest": "ee756b0ceaf3200e3bc95fdf8dd8db573ffeec1a9f303092f7012a5f3683b808",

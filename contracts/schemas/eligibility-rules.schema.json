@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zero-ops-sre-recipe.contracts/schemas/eligibility-rules.schema.json",
+  "title": "Eligibility rules",
+  "description": "The published rules that decide whether a discovered resource is a candidate (FR-12). One machine-readable source, consumed by the discovery filter, by the published document, and by the empty-result report. FR-12's requirement is not that the rules be written down but that the rules a reader sees and the rules the step reports are the same rules, which only holds while there is a single source and a check that can fail when a copy drifts from it. Workload-neutral by construction: no rule may name a resource type, because the core ships no workload-type content of its own and type eligibility arrives from an extension (FR-63, CC-022, CON-11).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "name", "emptyResultPreamble", "rules"],
+  "properties": {
+    "schemaVersion": { "$ref": "#/$defs/schemaVersion" },
+
+    "name": { "$ref": "#/$defs/identifier" },
+
+    "emptyResultPreamble": {
+      "type": "string",
+      "minLength": 40,
+      "maxLength": 600,
+      "description": "The sentence printed above the rules when discovery returns nothing. Held here rather than in the reporter so that the whole of what an operator reads on an empty result comes from this file, including the framing. A preamble written in code would be the one part of the report no drift check covered."
+    },
+
+    "rules": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/rule" },
+      "description": "Every rule applied to decide candidacy, in the order they are reported. Required to be non-empty: an eligibility rule set with no rules would admit everything while still validating, and the empty-result report would print a list of nothing as though it were an explanation. Identifier uniqueness, stage uniqueness and the rule that an exclusion is applied last each compare two sibling rules, so they are deferred to a semantic check."
+    }
+  },
+
+  "$defs": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0.0",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "The version of this schema the instance conforms to (FR-05, FR-29). Pinned with const rather than left to the pattern: without it an instance could declare any version at all and still validate, which made the declaration decorative (NFR-21)."
+    },
+
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{1,62}[a-z0-9]$",
+      "description": "Lowercase, hyphen-separated. Constrained so an identifier cannot carry arbitrary text, and English by construction (FR-03, CON-01)."
+    },
+
+    "ruleId": {
+      "type": "string",
+      "pattern": "^ELI-[0-9]{3}$",
+      "description": "Stable identifier. An operator quoting a rule from an empty result, and a reader looking it up in the published document, must be naming the same thing."
+    },
+
+    "rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "statement", "stage", "decidedBy", "whyEmpty"],
+      "properties": {
+        "id": { "$ref": "#/$defs/ruleId" },
+
+        "title": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 80,
+          "description": "Short label used as the heading in both renderings."
+        },
+
+        "statement": {
+          "type": "string",
+          "minLength": 40,
+          "maxLength": 500,
+          "description": "The rule itself, phrased as a condition a resource either meets or does not. Written for an operator rather than an implementer, because this string is what the empty result prints."
+        },
+
+        "stage": {
+          "type": "string",
+          "enum": ["scope", "permission", "signal", "extension", "exclusion"],
+          "description": "Which part of discovery evaluates the rule. Ordered from cheapest to most specific, so an empty result can be read top to bottom and the first failing stage is the one worth investigating."
+        },
+
+        "decidedBy": {
+          "type": "string",
+          "enum": ["operator", "azure", "extension"],
+          "description": "Who supplies the fact the rule tests. 'operator' is something the person running discovery chose, 'azure' is something the platform answered, 'extension' is something a workload extension declared. An operator reading an empty result needs to know which of the three to go and change, and that is not inferable from the rule text."
+        },
+
+        "whyEmpty": {
+          "type": "string",
+          "minLength": 40,
+          "maxLength": 500,
+          "description": "What a zero-candidate result means if this rule is the one that excluded everything, and the next action. Required on every rule, because a rule list that explains only itself tells an operator what was applied and not what to do about it."
+        }
+      }
+    }
+  }
+}
