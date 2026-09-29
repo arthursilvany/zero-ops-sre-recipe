@@ -35,7 +35,7 @@ Treat this as a production-quality reusable framework, not as a throwaway protot
 
 Implement all new artifacts only in the currently opened target repository:
 
-C:\dev\zero-ops-sre-recipe
+`<workspace-root>`
 
 Remote repository:
 
@@ -48,10 +48,10 @@ If the local target path differs from the actual workspace root, use the current
 Analyze the following local sources before proposing the design:
 
 1. Existing implementation:
-   C:\dev\zero-ops-sre-cortex
+   `<reference-implementation-checkout>`
 
 2. SRE Agent guide:
-   C:\dev\sre-agent\GUIA-SRE-AGENT-PTBR.html
+   `<sre-agent-guide>`
 
 The guide may be written in Portuguese, but every artifact produced in the target repository must be in English.
 
@@ -83,7 +83,7 @@ If either reference source is inaccessible:
 
 Create a structured inventory of the existing implementation and guide.
 
-For the `zero-ops-sre-cortex` implementation, identify only what is actually present, including:
+For the reference implementation, identify only what is actually present, including:
 
 - Architecture and major components
 - SRE agent responsibilities
@@ -108,7 +108,7 @@ For the `zero-ops-sre-cortex` implementation, identify only what is actually pre
 - Reusable patterns
 - Gaps and technical debt
 
-For `GUIA-SRE-AGENT-PTBR.html`, identify:
+For the SRE Agent guide, identify:
 
 - Recommended SRE agent structure
 - Required and optional artifacts
@@ -145,7 +145,7 @@ For each reusable artifact, document:
 - Validation method
 - Source evidence, including the relevant source file path
 
-The resulting repository must be a generalized recipe. It must not be a direct clone or rename of `zero-ops-sre-cortex`.
+The resulting repository must be a generalized recipe. It must not be a direct clone or rename of the reference implementation.
 
 ## Functional Outcome
 
