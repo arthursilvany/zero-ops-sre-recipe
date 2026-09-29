@@ -36,9 +36,21 @@ unrecognised.
 |---------|--------|
 | A command given as a string | Splitting it would put another shell's quoting rules inside this process. |
 | An empty token | Usually an interpolated value that did not exist. |
-| A token containing `;`, `&`, <code>&#124;</code>, `` ` ``, `$(`, `>`, `<`, a newline or a NUL | No resource identifier contains one, and each is how a token stops being one token. |
+| A token containing `;`, `&`, <code>&#124;</code>, `` ` ``, `$(`, `>`, `<`, a newline or a NUL | No resource identifier contains one, and each is how a token stops being one token. Query values are the exception, below. |
 | A program other than `az`, including an absolute path to it | A path is how a call site reaches a different binary while still looking brokered. |
 | `--yes`, `-y`, `--force`, `--no-wait` | A confirmation flag exists because something is about to change. |
+
+## Query values are payload, not structure
+
+A Resource Graph query is built on <code>&#124;</code>. Under the rule above no query could ever be issued, and the one caller that most needs the choke point would have to reach past it. Loosening the rule for every token instead would be worse again, so the loosening is named and bounded.
+
+`VALUE_BEARING_FLAGS` lists the flags whose following value is data rather than command structure. Today that is `--graph-query` and its short form `-q`, and both spellings are covered: the value in the next token, and the value joined with `=`.
+
+A payload token is still refused if it contains a newline, a carriage return or a NUL. A line break can end an argument early in some argv encodings, and it splits in two the line of evidence that records the query. Catalogued queries are therefore written on a single line.
+
+What makes this safe is not that the value is trusted. It is that the broker runs the list through `subprocess` with `shell=False`, so a payload token is one argument and no shell ever parses it. The structural rule stays in force for every token that decides what the command *is*.
+
+The exemption is a registry rather than a heuristic. A heuristic that guessed which tokens were data would eventually guess that a structural one was. Following *some* flag is not enough; the flag has to be listed, with the reason beside it.
 
 ## What the broker adds
 

@@ -72,9 +72,8 @@
       },
       {
         "path": "wizard/discovery/",
-        "status": "planned",
-        "purpose": "Read-only Resource Graph query definitions.",
-        "materialisedBy": "T4.02"
+        "status": "present",
+        "purpose": "Read-only Resource Graph query definitions."
       },
       {
         "path": "wizard/eligibility/",

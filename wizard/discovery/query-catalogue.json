@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "1.0.0",
+  "name": "discovery-defaults",
+  "description": "The Resource Graph reads the guided discovery step issues. Framework defaults only. Every entry is workload-neutral and names no workload type, because wizard/discovery/ is a core path (FR-63, CC-022, CON-11). Each query is written on a single line so it travels as one argument and records as one line of evidence.",
+  "entries": [
+    {
+      "id": "subscription-readability",
+      "origin": "frameworkDefault",
+      "capabilityClass": "readResourceMetadata",
+      "queryText": "ResourceContainers | where type =~ 'microsoft.resources/subscriptions' | project id, name | order by id asc",
+      "queryHash": "e99bb7f9d0cf0029e229431b079ea147af624770a4a8fb1180efd100f7896f2f",
+      "reviewedAt": "2026-09-29T00:00:00Z",
+      "purpose": "Establish whether the identity can read the named subscription before anything is enumerated. Resource Graph answers a withheld subscription and an empty one identically: no rows, no error, exit code zero. Enumerating first and judging by row count cannot tell them apart, and would report an empty candidate list for a permissions problem. This read is what makes the distinction available (FR-22). The type named is the Azure container for a subscription, not a workload type."
+    },
+    {
+      "id": "subscription-resources",
+      "origin": "frameworkDefault",
+      "capabilityClass": "readResourceMetadata",
+      "queryText": "Resources | project id, name, type, location, resourceGroup, subscriptionId | order by id asc",
+      "queryHash": "3d10a79f8f8392073532b925d722842aee7ad7acf45e45db82207c6e66a81c0e",
+      "reviewedAt": "2026-09-29T00:00:00Z",
+      "purpose": "Enumerate every resource the identity can read. It filters on no type, because deciding which types are candidates belongs to an installed extension (ELI-004) and a default type filter here would be workload content in a core path. The projection is a fixed field list rather than a wildcard, so no row carries data nobody chose to collect. Tags are absent: a tag is operator-controlled free text and the likeliest place a secret-shaped value appears. Ordered by id, for byte-stable output."
+    },
+    {
+      "id": "resource-diagnostic-settings",
+      "origin": "frameworkDefault",
+      "capabilityClass": "readResourceMetadata",
+      "queryText": "Resources | where type =~ 'microsoft.insights/diagnosticsettings' | project id | order by id asc",
+      "queryHash": "a59d48c5fb2f10ca0d32a1e7102c72add3bfe6d912d1206ae2ff7065e8c93fa2",
+      "reviewedAt": "2026-09-29T00:00:00Z",
+      "purpose": "Find which resources emit a signal readable without changing them, which is the question ELI-003 asks. The type named here is the Azure mechanism by which any resource emits diagnostics: a platform observability type rather than a workload type, admitting no workload and excluding none. Only the setting identifier is projected, because the parent resource is its prefix, and the setting's own properties would carry workspace and destination identifiers this step has no use for."
+    }
+  ]
+}
