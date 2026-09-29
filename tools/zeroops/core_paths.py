@@ -322,6 +322,21 @@ def check_evidence_entry(root, files, declaration, problems):
     return examined
 
 
+def check_prohibited_actions(root, files, declaration, problems):
+    """FR-59: the page an operator reads still matches the policy it describes.
+
+    The other checks here keep the framework's guarantees true. This one keeps
+    the statement of those guarantees true, which is a separate failure: a
+    page promising a prohibition the policy stopped making reads correctly and
+    is wrong, and nothing else in this gate would notice.
+    """
+    from . import prohibitions
+
+    found, examined = prohibitions.scan(root, files, declaration)
+    problems.extend(found)
+    return examined
+
+
 def check(root=None, declaration=None):
     """Return a list of problems. An empty list means the declaration holds.
 
@@ -364,4 +379,5 @@ def check(root=None, declaration=None):
     check_instruction_regions(root, files, declaration, problems)
     check_schema_lint(root, files, declaration, problems)
     check_evidence_entry(root, files, declaration, problems)
+    check_prohibited_actions(root, files, declaration, problems)
     return problems

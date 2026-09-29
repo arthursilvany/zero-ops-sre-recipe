@@ -127,13 +127,14 @@ green for a reason nobody chose.
 | No core path holds an instruction region | A JSON key or a Python name meaning prompt, instruction or message (FR-55, SEC-002) |
 | No core schema leaves a way in | An object that is not closed, a property named for secret material, or a field that accepts arbitrary structure (FR-49, SEC-013) |
 | An evidence entry cannot hold content | A property of `$defs/evidenceEntry` that admits text nobody constrained, an entry that does not record a content hash and a data classification, or a hash not made conditional on the observation state (FR-55, CC-019) |
+| The operator page matches the policy it describes | A deny rule or an allowed capability class the page does not document, a prohibition the page states that the policy does not make, or a row with no guidance for the reader (FR-59) |
 
-The last three rules are one argument in three legs. Retrieved content cannot reach an
-instruction region inside a core path because a core path cannot retrieve anything, has
-nowhere to put a prompt, carries no field able to hold one, and leaves no place in the
-record where the thing itself could be written down instead of its hash. Each leg fails
-for a different reason and none implies the others, which is why all of them run from
-this one command.
+The three rules before the last are one argument in three legs. Retrieved content cannot
+reach an instruction region inside a core path because a core path cannot retrieve
+anything, has nowhere to put a prompt, carries no field able to hold one, and leaves no
+place in the record where the thing itself could be written down instead of its hash.
+Each leg fails for a different reason and none implies the others, which is why all of
+them run from this one command.
 
 The evidence rule is about shape rather than names. A vocabulary of content-sounding
 property names was written and discarded: `contentHash`, `dataClassification`,
@@ -143,10 +144,25 @@ sentence somebody wrote. That bound is the named residual: a capped statement co
 hold an instruction, and it is safe only because no core path can retrieve anything to
 put there.
 
-Reading is deliberately narrow. JSON object keys are read and values are not; Python
-bound, imported and parameter names are read and string literals are not; markdown is not
-read at all. Core files describe these rules in prose, so a scanner reading prose would
-fail a schema for explaining its own compliance.
+Reading is deliberately narrow for the content rules. JSON object keys are read and
+values are not; Python bound, imported and parameter names are read and string literals
+are not; markdown is not read at all by those rules. Core files describe them in prose,
+so a scanner reading prose would fail a schema for explaining its own compliance.
+
+The last rule is the exception, and reads markdown on purpose. It compares
+`docs/prohibited-actions.md` with `core/policy/tool-policy.json` in both directions,
+because the page is what an operator reads when deciding whether to point the agent at a
+subscription and they do not open the policy. The direction that matters most is the one
+that looks fine in review: a prohibition still written on the page and no longer denied
+by the policy. The page reads correctly and the promise is empty.
+
+The page is written by hand rather than generated, because the column an operator
+actually needs is *what to do instead*, and no generator produces that from a
+justification written for a reviewer. The cost of that choice is drift, which is what
+this rule removes. The rule also requires the guidance column to be non-empty, otherwise
+the page would decay into the policy restated in Markdown and pass the comparison
+forever. Naming the residual: that establishes somebody wrote guidance, not that the
+guidance is good.
 
 ## Hash a document
 
