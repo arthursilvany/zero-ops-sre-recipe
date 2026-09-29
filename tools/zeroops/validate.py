@@ -407,6 +407,94 @@ def _check_ordering(instance, earlier, later, findings):
         )
 
 
+def _approval_ledger_semantics(instance):
+    """CC-017, and the two properties that make the ledger worth reading.
+
+    Self-approval is the reason this rule exists. The comparison is between
+    principal object identifiers and nothing else: a display name can be
+    changed to match, so a rule written against names is defeated by a
+    rename rather than by an argument (SEC-016).
+
+    The schema deliberately records the agent's own principal on the ledger,
+    which is what lets this run against a single document. A rule needing two
+    documents is a rule that can be skipped by not supplying the second.
+
+    Sequence and chain are checked here too, because append-only is a claim
+    about the whole list that JSON Schema cannot express over array members.
+    An approval removed from the middle leaves a valid document, and without
+    these two checks it leaves an unremarkable one.
+    """
+    findings = []
+    entries = instance.get("entries")
+    if not isinstance(entries, list):
+        return findings
+
+    agent = instance.get("agentPrincipalObjectId")
+    expected = 1
+    for index, entry in enumerate(entries):
+        if not isinstance(entry, dict):
+            continue
+        pointer = pointer_of(["entries", index])
+
+        decider = entry.get("deciderPrincipalObjectId")
+        if isinstance(agent, str) and isinstance(decider, str) and decider == agent:
+            findings.append(
+                Finding(
+                    pointer + "/deciderPrincipalObjectId",
+                    "records the agent's own principal as the decider, so the "
+                    "agent approved its own proposal",
+                )
+            )
+
+        sequence = entry.get("sequence")
+        if isinstance(sequence, int) and not isinstance(sequence, bool):
+            if sequence != expected:
+                findings.append(
+                    Finding(
+                        pointer + "/sequence",
+                        "does not continue the append-only sequence; an entry "
+                        "is missing, reordered or duplicated",
+                    )
+                )
+            expected = sequence + 1
+
+        # The schema makes previousEntryHash conditional on position in the
+        # sequence. Position in the array is what an append-only list is
+        # actually indexed by, and the two disagreeing is the fault.
+        has_previous = "previousEntryHash" in entry
+        if index == 0 and has_previous:
+            findings.append(
+                Finding(
+                    pointer + "/previousEntryHash",
+                    "is the first entry in the list and has nothing to follow",
+                )
+            )
+        if index > 0 and not has_previous:
+            findings.append(
+                Finding(
+                    pointer,
+                    "does not link to the entry before it, so a removed or "
+                    "reordered entry would not be detectable",
+                )
+            )
+    return findings
+
+
+def _environment_binding_semantics(instance):
+    """The one deferral in this schema that a single document can settle.
+
+    The other two (that the named environment exists, and how overriding
+    periods take precedence) need the framework configuration as well, and
+    are recorded as cross-document in SEMANTIC_COVERAGE rather than quietly
+    left out here.
+    """
+    findings = []
+    period = instance.get("observationPeriodOverride")
+    if isinstance(period, dict):
+        _check_period(period, "/observationPeriodOverride", findings)
+    return findings
+
+
 def _evidence_manifest_semantics(instance):
     findings = []
     _check_ordering(instance, "startedAt", "completedAt", findings)
@@ -519,6 +607,8 @@ def _tool_policy_semantics(instance):
 
 
 SEMANTIC_RULES = {
+    "approval-ledger": _approval_ledger_semantics,
+    "environment-binding": _environment_binding_semantics,
     "framework-config": semantic_findings,
     "scope-contract": _scope_contract_semantics,
     "evidence-manifest": _evidence_manifest_semantics,
@@ -527,13 +617,80 @@ SEMANTIC_RULES = {
 }
 
 
+# Why each artifact kind has a semantic rule or does not, stated once, for all
+# of them. The docstring below used to claim a test enforced this. No such test
+# existed, so the claim was load-bearing for a reader and enforced by nothing.
+#
+# The registry is deliberately total, following the pattern obligations.py
+# established: a kind that cannot be checked here says so and says why, rather
+# than being omitted. Omission and "checked, nothing to report" look identical
+# from the outside, and only one of them is honest.
+#
+# Two independent sources have to agree. This table is one. The schema text is
+# the other: a schema that says "semantic check" anywhere cannot be classified
+# STRUCTURE_ONLY here. Either alone would be a single author's opinion.
+HAS_RULE = "rule"
+CROSS_DOCUMENT = "crossDocument"
+STRUCTURE_ONLY = "structureOnly"
+
+SEMANTIC_COVERAGE = {
+    "agent-definition": (STRUCTURE_ONLY, "no constraint spans two sibling values."),
+    "approval-ledger": (
+        HAS_RULE,
+        "self-approval, sequence continuity and chain linkage.",
+    ),
+    "assessment-result": (
+        CROSS_DOCUMENT,
+        "evidence entry identifiers resolve against a separate manifest.",
+    ),
+    "capability-mapping": (
+        STRUCTURE_ONLY,
+        "an enumeration of pairs the schema closes.",
+    ),
+    "change-set": (STRUCTURE_ONLY, "shape only; nothing executes against it in v1."),
+    "connector-config": (
+        STRUCTURE_ONLY,
+        "every value is independently constrained.",
+    ),
+    "core-paths": (
+        STRUCTURE_ONLY,
+        "checked against the filesystem by check-core, not here.",
+    ),
+    "environment-binding": (
+        HAS_RULE,
+        "period ordering. Environment existence and period precedence are "
+        "cross-document and are not claimed by this rule.",
+    ),
+    "evidence-manifest": (HAS_RULE, "execution timestamps must not run backwards."),
+    "framework-config": (HAS_RULE, "references, environments and period ordering."),
+    "handoff-record": (HAS_RULE, "turn must not exceed the declared ceiling."),
+    "query-catalogue": (STRUCTURE_ONLY, "entries are independent of one another."),
+    "readiness-result": (STRUCTURE_ONLY, "a report of checks already performed."),
+    "schema-versions": (
+        STRUCTURE_ONLY,
+        "compared against the schema files by its own check.",
+    ),
+    "scope-contract": (HAS_RULE, "scope overlap and period ordering."),
+    "tool-policy": (HAS_RULE, "declared ceilings must not exceed the baseline."),
+    "vocabulary": (
+        STRUCTURE_ONLY,
+        "a closed term list with no relational constraint.",
+    ),
+    "workload-extension": (
+        CROSS_DOCUMENT,
+        "overrides compare against the tool policy, and alert and timezone "
+        "references resolve against catalogues held elsewhere.",
+    ),
+}
+
+
 def semantic_findings_for(kind, instance):
     """Semantic checks for one artifact kind.
 
     A kind with no entry here is structurally checked only. That is reported by
-    the absence of a rule rather than hidden: a test asserts every kind whose
-    schema carries a relational constraint has a rule, so a kind is never
-    silently downgraded to structure-only by someone forgetting to add one.
+    the absence of a rule rather than hidden: SEMANTIC_COVERAGE classifies every
+    known kind, and a test asserts the two agree, so a kind is never silently
+    downgraded to structure-only by someone forgetting to add a rule.
     """
     rule = SEMANTIC_RULES.get(kind)
     if rule is None or not isinstance(instance, dict):
