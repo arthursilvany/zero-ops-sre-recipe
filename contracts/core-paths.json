@@ -78,9 +78,8 @@
       },
       {
         "path": "wizard/eligibility/",
-        "status": "planned",
-        "purpose": "Published eligibility rules.",
-        "materialisedBy": "T4.01"
+        "status": "present",
+        "purpose": "Published eligibility rules."
       },
       {
         "path": "extensions/README.md",

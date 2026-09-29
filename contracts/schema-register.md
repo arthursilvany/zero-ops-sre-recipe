@@ -44,6 +44,7 @@ fails just as an entry with no schema does.
 | Readiness result | `readiness-result.schema.json` | Recommended | Execution | Whether the workload can be observed at all |
 | Core path declaration | `core-paths.schema.json` | Required | Framework | Describes `contracts/core-paths.json`, including the runtime identifiers it forbids |
 | Vocabulary | `vocabulary.schema.json` | Required | Framework | Describes `contracts/vocabulary/vocabulary.json`. Every enumerated value set defined in this directory appears there exactly once, with its origin recorded (FR-03) |
+| Eligibility rules | `eligibility-rules.schema.json` | Required | Framework | Describes `wizard/eligibility/eligibility-rules.json`. The published rules and the rules an empty discovery result reports are rendered from this one file, so the two cannot drift apart (FR-10, FR-12). Names no resource type in either direction (FR-63, CC-022) |
 | Schema version register | `schema-versions.schema.json` | Required | Framework | Describes `contracts/schema-versions.json`. Every schema in this directory appears there exactly once, with its current version, the content digest it had when that version was published, and what changed at each version (FR-29, NFR-21) |
 
 ## Rules every schema satisfies

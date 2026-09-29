@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "1.0.0",
+  "name": "core-eligibility-rules",
+  "emptyResultPreamble": "No candidate workloads were found in the supplied scope. Every rule below was applied. A rule that excluded everything is a finding about the scope, the permissions or the installed extensions, not a failure of discovery.",
+  "rules": [
+    {
+      "id": "ELI-001",
+      "title": "Inside the supplied scope",
+      "statement": "The resource belongs to the single subscription the operator supplied. Nothing outside that subscription is considered, and discovery never widens the scope on its own.",
+      "stage": "scope",
+      "decidedBy": "operator",
+      "whyEmpty": "The subscription holds no resource discovery can see at all. Confirm the subscription identifier is the one intended, and that it is not an empty or newly created subscription."
+    },
+    {
+      "id": "ELI-002",
+      "title": "Readable with read-only permissions",
+      "statement": "The identity running discovery can read the resource. Discovery requests no permission beyond reading, and a portion of the scope it cannot read is reported as an explicit access-denied state naming the missing permission.",
+      "stage": "permission",
+      "decidedBy": "azure",
+      "whyEmpty": "The identity can reach the subscription but cannot read inside it. Read the reported denials: they name the permission that was missing. An empty candidate list with denials present is a permissions problem and not an absence of workloads."
+    },
+    {
+      "id": "ELI-003",
+      "title": "Emits an observable signal",
+      "statement": "The resource exposes at least one signal that can be read without changing it. A resource that emits nothing observable cannot be investigated by a read-only agent, so listing it as a candidate would promise an investigation that could never happen.",
+      "stage": "signal",
+      "decidedBy": "azure",
+      "whyEmpty": "Resources exist and are readable, but none of them emits a signal discovery could find. This usually means diagnostic collection was never configured. Configuring it is a prerequisite, not a workaround."
+    },
+    {
+      "id": "ELI-004",
+      "title": "Its type is declared eligible by an installed extension",
+      "statement": "A resource type becomes a candidate type because an installed workload extension declares it so. The framework core declares no resource type of its own, in either direction: it neither admits nor excludes any type, and shipping a default list here would make the core carry workload content it is required not to carry.",
+      "stage": "extension",
+      "decidedBy": "extension",
+      "whyEmpty": "No extension is installed, or none of the installed extensions declares a type present in this scope. This is the expected result on a fresh installation. Install or write the extension for the workload being onboarded; no core file needs to change."
+    },
+    {
+      "id": "ELI-005",
+      "title": "Not excluded by the operator",
+      "statement": "The resource is not matched by an exclusion the operator supplied. Exclusions are applied last and always win, so a resource every other rule admitted can still be withheld deliberately.",
+      "stage": "exclusion",
+      "decidedBy": "operator",
+      "whyEmpty": "The exclusions supplied matched everything the earlier rules admitted. Re-read them: an exclusion written more broadly than intended removes candidates without reporting a denial, because withholding was the instruction."
+    }
+  ]
+}

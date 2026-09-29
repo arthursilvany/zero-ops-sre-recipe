@@ -296,6 +296,34 @@
       "note": "Lets the core declaration name a path that a later task will create, without the gate either failing on it or pretending it exists."
     },
     {
+      "name": "eligibilityDecidedBy",
+      "values": [
+        "operator",
+        "azure",
+        "extension"
+      ],
+      "appliesTo": [
+        "eligibility-rules#/$defs/rule/properties/decidedBy"
+      ],
+      "origin": "frameworkOriginated",
+      "note": "Names who supplies the fact a rule tests, because the remedy differs: operator input is changed by supplying different input, an azure fact is changed in the platform, and an extension fact is changed by installing or writing one. An empty result that named no owner would tell an operator they were excluded and not where to go."
+    },
+    {
+      "name": "eligibilityStage",
+      "values": [
+        "scope",
+        "permission",
+        "signal",
+        "extension",
+        "exclusion"
+      ],
+      "appliesTo": [
+        "eligibility-rules#/$defs/rule/properties/stage"
+      ],
+      "origin": "frameworkOriginated",
+      "note": "The decision points discovery passes through, ordered in the rule set from the cheapest condition to the most specific, with exclusion applied last so that a deliberate withholding always wins."
+    },
+    {
       "name": "environmentTier",
       "values": [
         "nonProduction",

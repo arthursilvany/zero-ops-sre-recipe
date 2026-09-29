@@ -606,8 +606,69 @@ def _tool_policy_semantics(instance):
     ]
 
 
+def _eligibility_rules_semantics(instance):
+    """The three constraints a rule set settles about itself (FR-10, FR-12).
+
+    None of them is expressible in JSON Schema, because each one compares two
+    sibling rules. They matter because the rule set is rendered into both the
+    published document and the empty-result report, and each failure produces a
+    report that reads correctly while misleading the operator: two rules
+    sharing an identifier make an empty result cite an ambiguous rule, two
+    rules claiming a stage make the report describe a decision point twice, and
+    an exclusion that is not last contradicts the published precedence.
+    """
+    findings = []
+    rules = instance.get("rules")
+    if not isinstance(rules, list):
+        return findings
+
+    seen_ids = set()
+    seen_stages = set()
+    for index, rule in enumerate(rules):
+        if not isinstance(rule, dict):
+            continue
+        identifier = rule.get("id")
+        if identifier in seen_ids:
+            findings.append(
+                Finding(
+                    "/rules/%d/id" % index,
+                    "repeats an identifier already used, so an empty result "
+                    "would cite a rule the reader cannot resolve to one rule",
+                )
+            )
+        seen_ids.add(identifier)
+
+        stage = rule.get("stage")
+        if stage in seen_stages:
+            findings.append(
+                Finding(
+                    "/rules/%d/stage" % index,
+                    "repeats a stage already claimed, so the report would "
+                    "describe one decision point as though it were two",
+                )
+            )
+        seen_stages.add(stage)
+
+    last = rules[-1] if rules and isinstance(rules[-1], dict) else None
+    exclusion_positions = [
+        index
+        for index, rule in enumerate(rules)
+        if isinstance(rule, dict) and rule.get("stage") == "exclusion"
+    ]
+    if exclusion_positions and last is not None and last.get("stage") != "exclusion":
+        findings.append(
+            Finding(
+                "/rules/%d/stage" % exclusion_positions[0],
+                "an exclusion is applied before a later rule, contradicting "
+                "the published precedence that a deliberate withholding wins",
+            )
+        )
+    return findings
+
+
 SEMANTIC_RULES = {
     "approval-ledger": _approval_ledger_semantics,
+    "eligibility-rules": _eligibility_rules_semantics,
     "environment-binding": _environment_binding_semantics,
     "framework-config": semantic_findings,
     "scope-contract": _scope_contract_semantics,
@@ -655,6 +716,10 @@ SEMANTIC_COVERAGE = {
     "core-paths": (
         STRUCTURE_ONLY,
         "checked against the filesystem by check-core, not here.",
+    ),
+    "eligibility-rules": (
+        HAS_RULE,
+        "identifier and stage uniqueness, and exclusion applied last.",
     ),
     "environment-binding": (
         HAS_RULE,
