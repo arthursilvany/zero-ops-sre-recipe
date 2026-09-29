@@ -999,7 +999,10 @@ def _run_test(args):
         )
         return EXIT_USAGE
     try:
-        return localtest.run_local(args.pattern)
+        return localtest.run_local(
+            args.pattern,
+            area=localtest.NEGATIVE_AREA if args.negative else None,
+        )
     except localtest.LocalTestError as exc:
         sys.stderr.write("error: %s\n" % exc)
         return EXIT_USAGE
@@ -1058,6 +1061,15 @@ def main(argv=None):
         "--pattern",
         default="test_*.py",
         help="Discovery pattern. Defaults to test_*.py.",
+    )
+    test_parser.add_argument(
+        "--negative",
+        action="store_true",
+        help=(
+            "Run only tests/negative, the suite that asserts what this "
+            "recipe must refuse to do. Named separately from the full run "
+            "so CI can require it as a release gate on its own."
+        ),
     )
 
     hash_parser = subparsers.add_parser(
