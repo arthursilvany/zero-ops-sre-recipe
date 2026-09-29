@@ -38,7 +38,11 @@ A denial is never a shorter list.
 
 `resource-diagnostic-settings` names one Azure type, and that is a deliberate exception rather than an oversight. `microsoft.insights/diagnosticSettings` is the platform mechanism by which *any* resource emits diagnostics. Naming it admits no workload and excludes none. The exception is asserted by a test, so widening it is a visible act.
 
-Tags are not projected. A tag is free text an operator controls, and is the likeliest place a secret-shaped value turns up. Output hygiene is a later task, and shipping the field before the control that inspects it would ship the hazard first.
+Tags are not projected. A tag is free text an operator controls, and is the likeliest place a secret-shaped value turns up. Projecting one would put it in the discovery output, and from there into any bug report made from that output. The controls that would make it safe are the field allow-list on the emitter and the negative test that a secret-shaped tag cannot reach a scope contract; until both exist, the field stays out.
+
+## What happens to what is read
+
+Discovery output holds real resource identifiers, real names and real resource-group names. It is ignored by git by default, it carries a warning as its first key, and it has a redaction mode for bug reports. See [`../../docs/discovery-output.md`](../../docs/discovery-output.md).
 
 ## What a fresh install returns
 
