@@ -95,5 +95,7 @@ than a person on the other end, which is every automated run.
 ## Related
 
 - [Scope contract](scope-contract.md), the artifact these inputs feed.
+- [Non-interactive runs](non-interactive.md), which answers the same questions
+  from a file and from `--set` instead of a prompt.
 - [Discovery](../wizard/discovery/README.md), which supplies the selection the
   inputs do not cover.

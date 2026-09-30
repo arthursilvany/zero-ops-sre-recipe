@@ -322,6 +322,16 @@ def build(
         "generatedAgainst": generated_against,
     }
 
+    # The digest normalises internally, so without this the emitted file and
+    # its own hash disagree about what the document is: two canonically
+    # equivalent selectors (a composed accent, and the decomposed form macOS
+    # commonly produces) hash the same and render to different bytes. Both
+    # files validate and both verify, so the divergence never surfaces as an
+    # error. FR-19 asks for byte-identical artifacts, not merely equal
+    # digests, so the normalisation belongs to the document itself and every
+    # step after this point sees the same form the hash is taken over.
+    document = canonical.normalise(document)
+
     leaks = []
     for pointer, value in _strings(document):
         for name in secret_findings(value):
