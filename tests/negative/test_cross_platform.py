@@ -20,6 +20,11 @@ pins: a path spelled with a backslash, and a string carrying a carriage
 return. Both are values that differ by platform if anything ever lets the
 running platform choose them.
 
+It also pins the bytes of an emitted scope contract, which is a different
+question from pinning a digest. The digest is taken over the canonical form;
+the committed file is not that form. FR-19 asks for a byte-identical artifact,
+so the artifact is pinned here as well.
+
 Run with:
     python -m unittest discover -s tests -p "test_*.py"
 """
@@ -31,6 +36,7 @@ import os
 import pathlib
 import sys
 import tempfile
+import unicodedata
 import unittest
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -38,6 +44,7 @@ sys.path.insert(0, os.path.join(REPO_ROOT, "tools"))
 sys.path.insert(0, os.path.join(REPO_ROOT, "tools", "upstream"))
 
 from zeroops import canonical  # noqa: E402
+from zeroops import scope_emitter  # noqa: E402
 from zeroops import workflows  # noqa: E402
 
 import verify_upstream  # noqa: E402
@@ -446,6 +453,96 @@ class TheTreeDigestIsSeparatorInvariant(unittest.TestCase):
         (root / "nested" / "deeper" / "leaf.txt").rename(moved)
         self.assertNotEqual(
             self.EXPECTED, verify_upstream.compute_tree_digest(root)
+        )
+
+
+class TheEmittedFileIsPinnedNotOnlyItsDigest(unittest.TestCase):
+    """FR-19 asks for a byte-identical artifact, not for equal digests.
+
+    Everything above pins `canonical.canonicalise` and `canonical.digest`. The
+    committed file is neither: `scope_emitter.render` lays the document out
+    with `json.dumps` for readability, and the digest is taken over the
+    canonical form. So the two can disagree, and for a while they did.
+
+    `canonical.digest` normalises to NFC internally. The emitted document did
+    not. A selector carrying a composed accent and the decomposed form that
+    some platforms produce for the same name hashed identically and rendered
+    to a different number of bytes. Both files validated, both verified
+    against their own recorded hash, and nothing reported that two runs of the
+    same input had produced two different files. A pinned digest cannot fail
+    on that, because the digest was never the thing that differed.
+
+    The fixture below is therefore authored in the decomposed form
+    deliberately. The pin records what a run must emit, and the matrix in
+    `verify.yml` is what makes reproducing it on two operating systems the
+    evidence.
+    """
+
+    DECOMPOSED = "rg-cafe\u0301"
+    COMPOSED = "rg-caf\u00e9"
+
+    EXPECTED_LENGTH = 671
+    EXPECTED_FILE_DIGEST = (
+        "31c6a98dd6dbdd173a0c2ec4d46cd211a5f9454516925cf5d9a0822f996488ad"
+    )
+    EXPECTED_RECORDED_HASH = (
+        "cadd7145f18e9030d48b8a5fec48e91b51b7c33b931b2b86ba3224af734eae0a"
+    )
+
+    def build(self, selector):
+        return scope_emitter.build(
+            subscription_ref="sub-one",
+            in_scope=[{"kind": "resourceGroup", "selector": selector}],
+            out_of_scope=[
+                {"kind": "tag", "selector": "environment=production"}
+            ],
+            observation_period={
+                "start": "2026-01-01T00:00:00Z",
+                "end": "2026-01-08T00:00:00Z",
+            },
+            execution_limits={
+                "maxToolCalls": 10,
+                "maxWallClockSeconds": 60,
+                "maxResultSetRows": 100,
+                "perQueryTimeoutSeconds": 30,
+            },
+            generated_at="2026-01-08T00:00:00Z",
+            generated_against="discovery-run-one",
+        )
+
+    def test_the_rendered_file_reproduces_its_pinned_bytes(self):
+        rendered = scope_emitter.render(self.build(self.DECOMPOSED))
+        self.assertEqual(self.EXPECTED_LENGTH, len(rendered))
+        self.assertEqual(
+            self.EXPECTED_FILE_DIGEST, hashlib.sha256(rendered).hexdigest()
+        )
+
+    def test_the_two_spellings_of_one_name_render_to_the_same_bytes(self):
+        self.assertNotEqual(self.DECOMPOSED, self.COMPOSED)
+        self.assertEqual(
+            unicodedata.normalize("NFC", self.DECOMPOSED),
+            unicodedata.normalize("NFC", self.COMPOSED),
+        )
+        self.assertEqual(
+            scope_emitter.render(self.build(self.DECOMPOSED)),
+            scope_emitter.render(self.build(self.COMPOSED)),
+        )
+
+    def test_the_recorded_hash_is_pinned_too(self):
+        """So a change that moved only the layout is still visible."""
+        self.assertEqual(
+            self.EXPECTED_RECORDED_HASH,
+            self.build(self.DECOMPOSED)[scope_emitter.HASH_FIELD],
+        )
+
+    def test_the_file_carries_no_carriage_return_on_any_platform(self):
+        self.assertNotIn(b"\r", scope_emitter.render(self.build(self.COMPOSED)))
+
+    def test_control_a_different_selector_moves_the_pinned_bytes(self):
+        """Otherwise the pin would hold over a document nobody built from it."""
+        other = scope_emitter.render(self.build("rg-plain"))
+        self.assertNotEqual(
+            self.EXPECTED_FILE_DIGEST, hashlib.sha256(other).hexdigest()
         )
 
 
