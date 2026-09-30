@@ -38,7 +38,7 @@ A denial is never a shorter list.
 
 `resource-diagnostic-settings` names one Azure type, and that is a deliberate exception rather than an oversight. `microsoft.insights/diagnosticSettings` is the platform mechanism by which *any* resource emits diagnostics. Naming it admits no workload and excludes none. The exception is asserted by a test, so widening it is a visible act.
 
-Tags are not projected. A tag is free text an operator controls, and is the likeliest place a secret-shaped value turns up. Projecting one would put it in the discovery output, and from there into any bug report made from that output. The controls that would make it safe are the field allow-list on the emitter and the negative test that a secret-shaped tag cannot reach a scope contract; until both exist, the field stays out.
+Tags are not projected. A tag is free text an operator controls, and is the likeliest place a secret-shaped value turns up. Projecting one would put it in the discovery output, and from there into any bug report made from that output. Two controls would make it safe. The field allow-list on the emitter now exists, and is described in [`../../docs/scope-contract.md`](../../docs/scope-contract.md): a selector for a tag cannot be derived from a discovery row at all, so it has to be typed deliberately. The negative test that a secret-shaped tag value cannot reach a scope contract does not exist yet. Until it does, the field stays out.
 
 ## What happens to what is read
 
