@@ -1,16 +1,16 @@
 {
   "schemaVersion": "1.0.0",
   "name": "discovery-defaults",
-  "description": "The Resource Graph reads the guided discovery step issues. Framework defaults only. Every entry is workload-neutral and names no workload type, because wizard/discovery/ is a core path (FR-63, CC-022, CON-11). Each query is written on a single line so it travels as one argument and records as one line of evidence.",
+  "description": "The reads the guided discovery step issues: one Azure Resource Manager GET, whose text is a request path, and two Resource Graph queries. Framework defaults only. Every entry is workload-neutral and names no workload type, because wizard/discovery/ is a core path (FR-63, CC-022, CON-11). Each query is written on a single line so it travels as one argument and records as one line of evidence.",
   "entries": [
     {
       "id": "subscription-readability",
       "origin": "frameworkDefault",
       "capabilityClass": "readResourceMetadata",
-      "queryText": "ResourceContainers | where type =~ 'microsoft.resources/subscriptions' | project id, name | order by id asc",
-      "queryHash": "e99bb7f9d0cf0029e229431b079ea147af624770a4a8fb1180efd100f7896f2f",
-      "reviewedAt": "2026-09-29T00:00:00Z",
-      "purpose": "Establish whether the identity can read the named subscription before anything is enumerated. Resource Graph answers a withheld subscription and an empty one identically: no rows, no error, exit code zero. Enumerating first and judging by row count cannot tell them apart, and would report an empty candidate list for a permissions problem. This read is what makes the distinction available (FR-22). The type named is the Azure container for a subscription, not a workload type."
+      "queryText": "/subscriptions/{subscription}/providers/Microsoft.Authorization/permissions?api-version=2022-04-01",
+      "queryHash": "b082cedf5b20a53ab0bf100c0a47f9b90b004f166d1a4c7d0df547d03ea48aa9",
+      "reviewedAt": "2026-10-01T00:00:00Z",
+      "purpose": "Establish that the identity can read every resource in the named subscription before anything is enumerated. An Azure Resource Manager GET issued through the broker, not a Resource Graph query: Resource Graph returns the subscription row to an identity with any role inside it, so a container read passed for one resource group (issue 144). Discovery requires */read or * with no exclusion that could touch a read."
     },
     {
       "id": "subscription-resources",

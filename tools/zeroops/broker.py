@@ -55,7 +55,34 @@ READ_ONLY_VERBS = (
     ("list", "Enumerate resources in a scope. No side effect."),
     ("query", "Resource Graph read, the discovery mechanism ADR-0003 chose."),
     ("version", "Record the CLI version in evidence. Touches no subscription."),
+    (
+        "rest",
+        "One GET to Azure Resource Manager. az rest can also write, so it is "
+        "admitted only in the shape REST_FLAGS allows: an explicit GET to a "
+        "relative ARM path, with no body and no other flag.",
+    ),
 )
+
+# `az rest` is the only allowed verb that could change state, because its
+# method is a parameter. So it is admitted in exactly one shape and the shape
+# is checked whole: every flag after the verb must appear here, each at most
+# once, and the method and URL must both be present. An allow-list of flags
+# rather than a deny-list of dangerous ones, for the same reason the verbs are
+# an allow-list: `--body`, `--headers` and `--resource` are refused because
+# they are absent, not because somebody remembered them.
+REST_FLAGS = (
+    ("--method", "Required, and only `get`. Stated explicitly rather than "
+                 "relying on the CLI default, which a future CLI could change."),
+    ("--url", "Required, and only a path beginning with a single `/`. The CLI "
+              "prefixes it with the current cloud's ARM endpoint, so the token "
+              "it attaches can only travel to ARM."),
+    ("--output", "Added by plan(). Formatting only."),
+    ("-o", "Short form of --output."),
+)
+
+# Flags that take no value. Listed apart so the shape check knows not to
+# consume the next token as one.
+REST_SWITCHES = ("--only-show-errors",)
 
 # Never consulted to decide, only to explain. See decision 2 above.
 WRITE_VERBS = (
@@ -277,6 +304,9 @@ def plan(command, output="json"):
             % (verb, ", ".join(allowed_verbs()))
         )
 
+    if verb == "rest":
+        _check_rest_shape(command)
+
     planned = list(command)
     if not _names_output(planned):
         # Evidence is compared across runs and across platforms, so the output
@@ -287,6 +317,52 @@ def plan(command, output="json"):
         # inside captured evidence, where they read as failures.
         planned += ["--only-show-errors"]
     return planned
+
+
+def _check_rest_shape(command):
+    """Refuse every `az rest` that is not an explicit GET to a relative ARM path."""
+    start = 1
+    while start < len(command) and not command[start].startswith("-"):
+        start += 1
+    flags = dict(REST_FLAGS)
+    seen = {}
+    index = start
+    while index < len(command):
+        token = command[index]
+        if token in REST_SWITCHES:
+            index += 1
+            continue
+        if token not in flags:
+            raise BrokerRefusal(
+                "az rest is allowed only as an explicit GET to Azure Resource "
+                "Manager, and %r is not one of the flags that shape permits "
+                "(%s). A flag absent from that list is refused, whatever it "
+                "does." % (token, ", ".join(sorted(flags) + list(REST_SWITCHES)))
+            )
+        if token in seen:
+            raise BrokerRefusal(
+                "az rest names %s twice. Which one the CLI honours is not "
+                "something this broker should have to know." % token
+            )
+        if index + 1 >= len(command):
+            raise BrokerRefusal("az rest names %s with no value." % token)
+        seen[token] = command[index + 1]
+        index += 2
+
+    method = seen.get("--method")
+    if method is None or method.lower() != "get":
+        raise BrokerRefusal(
+            "az rest must name --method get explicitly. It was given %r. Any "
+            "other method can change state, and an absent one leaves the "
+            "decision to the CLI's default." % (method,)
+        )
+    url = seen.get("--url")
+    if url is None or not url.startswith("/") or url.startswith("//"):
+        raise BrokerRefusal(
+            "az rest must name --url as a path beginning with a single '/'. It "
+            "was given %r. A full URL could send the caller's token to a host "
+            "other than Azure Resource Manager." % (url,)
+        )
 
 
 def _names_output(command):

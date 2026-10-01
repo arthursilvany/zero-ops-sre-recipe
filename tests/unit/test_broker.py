@@ -29,7 +29,12 @@ from zeroops import broker  # noqa: E402
 # Stated independently of READ_ONLY_VERBS. Deriving this from the module
 # would make the two agree by construction: a renamed verb would leave both
 # sides and the assertion would still pass.
-EXPECTED_VERBS = ("list", "query", "show", "version")
+EXPECTED_VERBS = ("list", "query", "rest", "show", "version")
+
+# The one shape `az rest` is admitted in. Every refusal in TheRestVerbIsAGet
+# varies one thing from this, so each one is known to be refused for that
+# thing and not for some other part of the command.
+REST_GET = ["az", "rest", "--method", "get", "--url", "/subscriptions/x/providers/p"]
 
 # Verbs in neither the allow-list nor the write-list. These are the ones that
 # matter: they are what a deny-list approach would let through.
@@ -100,7 +105,8 @@ class ReadsArePlanned(unittest.TestCase):
     def test_every_allowed_verb_plans(self):
         for verb in broker.allowed_verbs():
             with self.subTest(verb=verb):
-                planned = broker.plan(["az", "resource", verb])
+                tail = REST_GET[2:] if verb == "rest" else []
+                planned = broker.plan(["az", "resource", verb] + tail)
                 self.assertEqual("az", planned[0])
                 self.assertIn(verb, planned)
 
@@ -170,6 +176,83 @@ class WritesAreRefused(unittest.TestCase):
             broker.plan(["az", "group", "delete"])
         for verb in broker.allowed_verbs():
             self.assertIn(verb, str(caught.exception))
+
+
+class TheRestVerbIsAGet(unittest.TestCase):
+    """`az rest` can write, because its method is a parameter. It is allowed
+    for one ARM GET, and everything else it can do is refused."""
+
+    def assert_refused(self, command, fragment):
+        with self.assertRaises(broker.BrokerRefusal) as caught:
+            broker.plan(command)
+        self.assertIn(fragment, str(caught.exception))
+
+    def replaced(self, flag, value):
+        command = list(REST_GET)
+        command[command.index(flag) + 1] = value
+        return command
+
+    def test_the_admitted_shape_plans(self):
+        # The control. Without it, a broker refusing every az rest would
+        # pass each refusal below.
+        planned = broker.plan(REST_GET)
+        self.assertEqual(REST_GET, planned[: len(REST_GET)])
+
+    def test_the_method_is_compared_without_case(self):
+        broker.plan(self.replaced("--method", "GET"))
+
+    def test_every_other_method_is_refused(self):
+        for method in ("put", "post", "patch", "delete", "head", "options"):
+            with self.subTest(method=method):
+                self.assert_refused(self.replaced("--method", method), "--method get")
+
+    def test_a_missing_method_is_refused_rather_than_left_to_the_default(self):
+        self.assert_refused(["az", "rest", "--url", "/subscriptions/x"], "--method get")
+
+    def test_a_full_url_is_refused(self):
+        for url in ("https://example.com/x", "//example.com/x", "subscriptions/x"):
+            with self.subTest(url=url):
+                self.assert_refused(self.replaced("--url", url), "single '/'")
+
+    def test_a_missing_url_is_refused(self):
+        self.assert_refused(["az", "rest", "--method", "get"], "--url")
+
+    def test_a_flag_outside_the_shape_is_refused(self):
+        for extra in (
+            ["--body", "{}"],
+            ["--headers", "a=b"],
+            ["--resource", "https://example.com"],
+            ["--uri-parameters", "a=b"],
+            ["--skip-authorization-header"],
+        ):
+            with self.subTest(extra=extra):
+                self.assert_refused(REST_GET + extra, "not one of the flags")
+
+    def test_the_short_and_joined_spellings_are_refused(self):
+        self.assert_refused(
+            ["az", "rest", "-m", "get", "--url", "/subscriptions/x"], "'-m'"
+        )
+        self.assert_refused(
+            ["az", "rest", "--method=put", "--url", "/subscriptions/x"],
+            "not one of the flags",
+        )
+
+    def test_a_repeated_flag_is_refused(self):
+        self.assert_refused(REST_GET + ["--method", "put"], "twice")
+
+    def test_a_flag_with_no_value_is_refused(self):
+        self.assert_refused(["az", "rest", "--url", "/x", "--method"], "no value")
+
+    def test_the_url_is_structure_and_cannot_chain_a_command(self):
+        self.assert_refused(self.replaced("--url", "/x&calc"), "'&'")
+
+    def test_the_shape_applies_to_no_other_verb(self):
+        broker.plan(["az", "resource", "show", "--ids", "/x", "--api-version", "1"])
+
+    def test_every_flag_in_the_shape_has_a_reason(self):
+        for flag, reason in broker.REST_FLAGS:
+            with self.subTest(flag=flag):
+                self.assertGreater(len(reason), 10)
 
 
 class ACommandIsAListOfTokens(unittest.TestCase):

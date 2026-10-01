@@ -12,9 +12,14 @@ rows, exit code zero, no error. That is the failure FR-22 is about, and a
 module that only inspected the exit code would report an empty candidate list
 and be wrong in the one direction that matters.
 
-So readability is established before enumeration, by asking Resource Graph
-whether the subscription container itself is visible. A subscription that does
-not come back is reported as an explicit access-denied state naming the
+So readability is established before enumeration, by asking Azure Resource
+Manager which actions the identity holds at the subscription scope itself, and
+requiring a read of everything there. Asking Resource Graph whether the
+subscription container is visible is not enough: it returns that row to an
+identity holding any role anywhere inside the subscription, so an identity
+that can read one resource group passed the check and its ten resources were
+reported as the whole answer (issue 144). A subscription the identity cannot
+read in full is reported as an explicit access-denied state naming the
 permission that was missing. The distinction it buys is the one an operator
 cannot make from the outside: nothing here, or nothing you can see.
 
@@ -59,6 +64,25 @@ DIAGNOSTIC_SETTINGS_QUERY = "resource-diagnostic-settings"
 
 QUERY_ORDER = (READABILITY_QUERY, RESOURCES_QUERY, DIAGNOSTIC_SETTINGS_QUERY)
 
+# Reads issued to Azure Resource Manager through `az rest` rather than to
+# Resource Graph. Their catalogued text is an ARM request path, with
+# SUBSCRIPTION_PLACEHOLDER where the checked identifier goes.
+ARM_READS = (READABILITY_QUERY,)
+SUBSCRIPTION_PLACEHOLDER = "{subscription}"
+
+# Where each read's rows live in its JSON answer. Resource Graph wraps them in
+# `data`; ARM list operations wrap them in `value`.
+ENVELOPE_FOR = {
+    READABILITY_QUERY: "value",
+    RESOURCES_QUERY: "data",
+    DIAGNOSTIC_SETTINGS_QUERY: "data",
+}
+
+# The actions that grant a read of every resource type. Resource Graph
+# returns only the resources the identity can read, so anything narrower than
+# one of these at the subscription scope is a reduced answer that looks whole.
+READ_EVERYTHING = ("*", "*/read")
+
 # An Azure subscription identifier is a GUID and nothing else. Checked before
 # the value becomes a command token: the broker refuses shell metacharacters,
 # but a value that is merely wrong rather than dangerous would otherwise reach
@@ -74,7 +98,7 @@ SUBSCRIPTION_PATTERN = re.compile(
 # grant rather than that something went wrong. These are Azure action strings,
 # not workload content.
 PERMISSION_FOR = {
-    READABILITY_QUERY: "Microsoft.Resources/subscriptions/read",
+    READABILITY_QUERY: "*/read",
     RESOURCES_QUERY: "Microsoft.ResourceGraph/resources/read",
     DIAGNOSTIC_SETTINGS_QUERY: "Microsoft.ResourceGraph/resources/read",
 }
@@ -91,6 +115,16 @@ AUTHORISATION_SIGNATURES = (
     "forbidden",
     "insufficient privileges",
     "authorization_requestdenied",
+)
+
+# How a subscription the identity cannot see is reported, by the CLI before
+# the request is sent and by ARM after it. Applied to the readability read
+# only, whose sole target is the subscription the operator named, so "not
+# found" there can only mean "not visible to this identity" or a mistyped
+# identifier. Both are reported as a denial; the description says so.
+NOT_VISIBLE_SIGNATURES = (
+    re.compile(r"subscriptionnotfound"),
+    re.compile(r"subscription '[^']*' (?:not found|could not be found)"),
 )
 
 
@@ -207,6 +241,24 @@ def plan_query(catalogue, identifier, subscription, limit=None):
     """
     item = entry(catalogue, identifier)
     subscription = check_subscription(subscription)
+    if identifier in ARM_READS:
+        path = item["queryText"]
+        if path.count(SUBSCRIPTION_PLACEHOLDER) != 1:
+            raise DiscoveryError(
+                "%s is an ARM read whose catalogued path does not name %s "
+                "exactly once, so it would not read the subscription the "
+                "operator supplied." % (identifier, SUBSCRIPTION_PLACEHOLDER)
+            )
+        return broker.plan(
+            [
+                "az",
+                "rest",
+                "--method",
+                "get",
+                "--url",
+                path.replace(SUBSCRIPTION_PLACEHOLDER, subscription),
+            ]
+        )
     limit = row_limit() if limit is None else limit
     return broker.plan(
         [
@@ -234,7 +286,44 @@ def denial_for(identifier, message):
     for signature in AUTHORISATION_SIGNATURES:
         if signature in lowered:
             return Denial(identifier, PERMISSION_FOR[identifier])
+    if identifier == READABILITY_QUERY:
+        for pattern in NOT_VISIBLE_SIGNATURES:
+            if pattern.search(lowered):
+                return Denial(identifier, PERMISSION_FOR[identifier])
     return None
+
+
+def grants_subscription_read(permissions):
+    """Whether ARM's permission list for the subscription reads every resource.
+
+    Each entry is one role's `actions` less its `notActions`, and the identity
+    holds the union of the entries. So one entry granting a read of everything
+    with no exclusion that could touch a read is enough, and an exclusion in
+    one entry is not rescued by an action in another unless that other entry
+    grants the whole read itself.
+    """
+    for grant in permissions:
+        if not isinstance(grant, dict):
+            continue
+        actions = [str(a).lower() for a in grant.get("actions") or []]
+        if not any(action in READ_EVERYTHING for action in actions):
+            continue
+        if any(_may_exclude_a_read(n) for n in grant.get("notActions") or []):
+            continue
+        return True
+    return False
+
+
+def _may_exclude_a_read(not_action):
+    """Conservative: an exclusion is harmless only when its final segment is a
+    literal operation other than `read`, such as `.../Delete` or `.../action`.
+
+    Anything ending in a wildcard or in `read` could remove a read of some
+    resource type, and deciding which types would need the full list of
+    provider operations, which this module does not have and should not ship.
+    """
+    last = str(not_action).rsplit("/", 1)[-1].lower()
+    return "*" in last or last == "read"
 
 
 class Denial(object):
@@ -245,11 +334,19 @@ class Denial(object):
         self.permission = permission
 
     def describe(self):
+        scope = ""
+        if self.query == READABILITY_QUERY:
+            scope = (
+                " at the subscription scope (the built-in Reader role there "
+                "grants it), or the subscription is not in this tenant, or "
+                "the Azure CLI profile does not list it yet (sign in again "
+                "after a recent role grant, without --allow-no-subscriptions)"
+            )
         return (
             "%s: access was denied. The identity running discovery is missing "
-            "%s. This is a permissions result and not an empty subscription; "
+            "%s%s. This is a permissions result and not an empty subscription; "
             "the scope has not been narrowed to match what could be read."
-            % (self.query, self.permission)
+            % (self.query, self.permission, scope)
         )
 
 
@@ -310,7 +407,14 @@ def _decode(text, identifier):
             % identifier
         )
     if isinstance(parsed, dict):
-        parsed = parsed.get("data", [])
+        envelope = ENVELOPE_FOR.get(identifier, "data")
+        if envelope not in parsed:
+            raise DiscoveryError(
+                "%s returned a JSON object with no %r member. Reading that as "
+                "no rows would be the silent empty answer this module refuses."
+                % (identifier, envelope)
+            )
+        parsed = parsed[envelope]
     if not isinstance(parsed, list):
         raise DiscoveryError(
             "%s returned a result that is not a list of rows." % identifier
@@ -356,15 +460,15 @@ def discover(subscription, runner=None, catalogue=None, root=None, limit=None):
 
     runner = runner or broker.default_runner
 
-    containers, denial = run_query(
+    permissions, denial = run_query(
         catalogue, READABILITY_QUERY, subscription, runner, limit=limit
     )
-    if not containers:
-        # Zero rows here is not an empty answer, whether the read was refused
-        # outright or returned nothing. The query asks whether the
-        # subscription container is visible, and the subscription exists by
-        # construction: the operator named it. So the only two readings are
-        # "withheld" and "withheld", and both are reported as a denial.
+    if denial is not None or not grants_subscription_read(permissions):
+        # A refused read, and a read that succeeds but shows the identity
+        # holds less than a read of everything at this scope, are the same
+        # result for the operator: what follows would not be the whole
+        # subscription. Enumerating anyway would hand back the visible part
+        # with nothing to say it was a part (issue 144).
         return DiscoveryResult(
             subscription,
             denials=[

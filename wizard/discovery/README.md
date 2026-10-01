@@ -4,11 +4,11 @@ The guided setup reads a subscription to propose candidates. This directory hold
 
 ## What is read
 
-Three queries, all in [`query-catalogue.json`](query-catalogue.json), all read-only, all issued through the command broker.
+Three reads, all in [`query-catalogue.json`](query-catalogue.json), all read-only, all issued through the command broker. The first is an Azure Resource Manager GET whose catalogued text is a request path; the other two are Resource Graph queries.
 
 | Query | What it answers |
 |---|---|
-| `subscription-readability` | Can this identity see the named subscription at all? |
+| `subscription-readability` | Can this identity read every resource in the named subscription? |
 | `subscription-resources` | Which resources can it read there? |
 | `resource-diagnostic-settings` | Which of those emit a signal that can be read without changing them? |
 
@@ -26,7 +26,9 @@ This is the part worth reading twice.
 
 Resource Graph returns what the calling identity can see. It does not report what it withheld. An identity with no read access to the subscription gets the same reply as an identity looking at an empty subscription: no rows, no error, exit code zero. Anything that judged by the row count alone would report "no candidates" for a permissions problem, and the operator would go looking for resources that were there the whole time.
 
-So readability is established first, by asking whether the subscription container itself is visible. If it is not, discovery reports an access-denied state naming the missing permission, and reports no candidate list at all.
+So readability is established first, by asking Azure Resource Manager which actions the identity holds at the subscription scope and requiring `*/read` (or `*`) with no `notActions` entry that could remove a read. If that is not held, discovery reports an access-denied state naming the missing permission, and reports no candidate list at all.
+
+Asking whether the subscription container is visible is not enough, and was once the check. Resource Graph returns the subscription row to an identity holding any role anywhere inside it. In a live run an identity with Reader on one resource group passed that check, and ten of 663 resources were reported as the complete subscription.
 
 The same holds for the two enumerating queries. If either is refused, the result carries a denial alongside whatever rows did come back, and **the rows cannot be read as if they were the whole answer**: `DiscoveryResult.rows` raises while a denial is present. A caller that genuinely wants the incomplete list calls `partial_rows()`, which says so at the call site. An attribute that quietly returned the shorter list would be exactly the silent scope reduction that is forbidden, dressed up as a convenience.
 

@@ -30,10 +30,6 @@ PLATFORM_TYPE_EXCEPTIONS = {
         "The platform mechanism by which any resource emits diagnostics. "
         "Naming it admits no workload and excludes none."
     ),
-    "microsoft.resources/subscriptions": (
-        "The container for a subscription, which is the scope itself rather "
-        "than anything inside it."
-    ),
 }
 
 
@@ -67,7 +63,16 @@ def rows(*items):
     return Completed(stdout=json.dumps(list(items)))
 
 
-CONTAINER = {"id": "/subscriptions/%s" % SUBSCRIPTION, "name": "target"}
+# A marker the readability read carries and no Resource Graph query does.
+PERMISSIONS = "Microsoft.Authorization/permissions"
+
+
+def permissions(*grants):
+    return Completed(stdout=json.dumps({"value": list(grants)}))
+
+
+READER = {"actions": ["*/read"], "notActions": []}
+OWNER = {"actions": ["*"], "notActions": []}
 RESOURCE_A = {"id": "/subscriptions/s/rg/a", "name": "a", "type": "type.one/kind"}
 RESOURCE_B = {"id": "/subscriptions/s/rg/b", "name": "b", "type": "type.two/kind"}
 SETTING_A = {
@@ -78,7 +83,7 @@ SETTING_A = {
 def healthy_runner(resources=(RESOURCE_A, RESOURCE_B), settings=(SETTING_A,)):
     return Recorder(
         {
-            "ResourceContainers": rows(CONTAINER),
+            PERMISSIONS: permissions(READER),
             "microsoft.insights": rows(*settings),
         },
         default=rows(*resources),
@@ -259,7 +264,8 @@ class PlanningGoesThroughTheBroker(unittest.TestCase):
         for identifier in discovery.QUERY_ORDER:
             command = self.planned(identifier)
             self.assertEqual(broker.CLI, command[0])
-            self.assertEqual("query", broker.verb_of(command))
+            expected = "rest" if identifier in discovery.ARM_READS else "query"
+            self.assertEqual(expected, broker.verb_of(command))
 
     def test_the_planned_command_pins_the_output_format(self):
         command = self.planned(discovery.RESOURCES_QUERY)
@@ -411,8 +417,20 @@ class DenialsAreDetected(unittest.TestCase):
 
     def test_a_denial_names_the_action_that_was_missing(self):
         denial = discovery.denial_for(discovery.READABILITY_QUERY, "Forbidden")
-        self.assertEqual("Microsoft.Resources/subscriptions/read", denial.permission)
-        self.assertIn("Microsoft.Resources/subscriptions/read", denial.describe())
+        self.assertEqual("*/read", denial.permission)
+        self.assertIn("*/read at the subscription scope", denial.describe())
+
+    def test_a_readability_denial_names_a_stale_cli_profile(self):
+        # Live, a subscription-scope Reader signed in with
+        # --allow-no-subscriptions got "Subscription ... not found" from the
+        # CLI itself, before any request reached ARM.
+        denial = discovery.denial_for(
+            discovery.READABILITY_QUERY,
+            "ERROR: Subscription 'x' not found. Check the spelling and casing.",
+        )
+        self.assertIn("Azure CLI profile does not list it", denial.describe())
+        other = discovery.denial_for(discovery.RESOURCES_QUERY, "Forbidden")
+        self.assertNotIn("CLI profile", other.describe())
 
     def test_a_denial_says_it_is_not_an_empty_subscription(self):
         denial = discovery.denial_for(discovery.RESOURCES_QUERY, "AuthorizationFailed")
@@ -462,7 +480,7 @@ class DiscoveryReportsWhatItCouldNotSee(unittest.TestCase):
         # The control for the case below. An empty subscription is an answer,
         # and reporting it as a denial would be the mirror-image failure.
         runner = Recorder(
-            {"ResourceContainers": rows(CONTAINER)}, default=rows()
+            {PERMISSIONS: permissions(READER)}, default=rows()
         )
         result = discovery.discover(SUBSCRIPTION, runner=runner)
         self.assertTrue(result.complete)
@@ -476,7 +494,7 @@ class DiscoveryReportsWhatItCouldNotSee(unittest.TestCase):
         )
         self.assertFalse(result.complete)
         self.assertEqual(
-            ["Microsoft.Resources/subscriptions/read"],
+            ["*/read"],
             [d.permission for d in result.denials],
         )
 
@@ -490,7 +508,7 @@ class DiscoveryReportsWhatItCouldNotSee(unittest.TestCase):
 
     def test_a_refused_enumeration_is_reported_as_a_denial(self):
         runner = Recorder(
-            {"ResourceContainers": rows(CONTAINER)},
+            {PERMISSIONS: permissions(READER)},
             default=Completed(returncode=1, stderr="AuthorizationFailed: no"),
         )
         result = discovery.discover(SUBSCRIPTION, runner=runner)
@@ -503,7 +521,7 @@ class DiscoveryReportsWhatItCouldNotSee(unittest.TestCase):
     def test_a_partial_result_cannot_be_read_as_a_whole_one(self):
         runner = Recorder(
             {
-                "ResourceContainers": rows(CONTAINER),
+                PERMISSIONS: permissions(READER),
                 "microsoft.insights": Completed(
                     returncode=1, stderr="AuthorizationFailed"
                 ),
@@ -518,7 +536,7 @@ class DiscoveryReportsWhatItCouldNotSee(unittest.TestCase):
     def test_the_partial_result_is_reachable_by_saying_so(self):
         runner = Recorder(
             {
-                "ResourceContainers": rows(CONTAINER),
+                PERMISSIONS: permissions(READER),
                 "microsoft.insights": Completed(
                     returncode=1, stderr="AuthorizationFailed"
                 ),
@@ -536,7 +554,7 @@ class DiscoveryReportsWhatItCouldNotSee(unittest.TestCase):
         withheld = discovery.discover(SUBSCRIPTION, runner=Recorder(default=rows()))
         empty = discovery.discover(
             SUBSCRIPTION,
-            runner=Recorder({"ResourceContainers": rows(CONTAINER)}, default=rows()),
+            runner=Recorder({PERMISSIONS: permissions(READER)}, default=rows()),
         )
         self.assertNotEqual(withheld.complete, empty.complete)
         self.assertNotEqual("", withheld.describe_denials())
@@ -544,7 +562,7 @@ class DiscoveryReportsWhatItCouldNotSee(unittest.TestCase):
 
     def test_a_failure_that_is_not_a_denial_is_raised_rather_than_reported(self):
         runner = Recorder(
-            {"ResourceContainers": rows(CONTAINER)},
+            {PERMISSIONS: permissions(READER)},
             default=Completed(returncode=1, stderr="the CLI is not installed"),
         )
         with self.assertRaises(discovery.DiscoveryError) as caught:
@@ -560,9 +578,7 @@ class DiscoveryReportsWhatItCouldNotSee(unittest.TestCase):
     def test_a_wrapped_data_envelope_is_unwrapped(self):
         runner = Recorder(
             {
-                "ResourceContainers": Completed(
-                    stdout=json.dumps({"data": [CONTAINER], "count": 1})
-                ),
+                PERMISSIONS: permissions(READER),
                 "microsoft.insights": rows(),
             },
             default=Completed(stdout=json.dumps({"data": [RESOURCE_A], "count": 1})),
@@ -587,7 +603,7 @@ class NoOutputIsNotAnEmptyAnswer(unittest.TestCase):
     def unreadable(self, stdout):
         return Recorder(
             {
-                "ResourceContainers": rows(CONTAINER),
+                PERMISSIONS: permissions(READER),
                 "microsoft.insights": rows(),
             },
             default=Completed(stdout=stdout),
@@ -629,6 +645,133 @@ class NoOutputIsNotAnEmptyAnswer(unittest.TestCase):
         with self.assertRaises(discovery.DiscoveryError):
             discovery.discover("not-a-guid", runner=runner)
         self.assertEqual([], runner.calls)
+
+
+class ReadabilityMeansReadingEverything(unittest.TestCase):
+    """Issue 144. An identity with Reader on one resource group passed the
+    readability check live, and ten of 663 resources were reported as the
+    whole subscription. Resource Graph shows the subscription row to anyone
+    with a role inside it, so the check now asks ARM what the identity holds
+    at the subscription and requires a read of everything there.
+
+    Every refusal below has a control that is accepted, because a check that
+    refused everything would pass each refusal on its own.
+    """
+
+    def discover(self, *grants, **answers):
+        runner = Recorder(
+            dict({PERMISSIONS: permissions(*grants)}, **answers),
+            default=rows(RESOURCE_A),
+        )
+        return discovery.discover(SUBSCRIPTION, runner=runner), runner
+
+    def assert_withheld(self, result, runner):
+        self.assertFalse(result.complete)
+        self.assertEqual(["*/read"], [d.permission for d in result.denials])
+        self.assertEqual(1, len(runner.calls), "nothing may be enumerated")
+
+    def test_the_cli_refusing_an_invisible_subscription_is_a_denial(self):
+        # What the resource-group-scoped identity got live: the CLI cannot
+        # resolve a subscription the identity holds nothing at.
+        runner = Recorder(
+            default=Completed(
+                returncode=1,
+                stderr="ERROR: Subscription '%s' not found. Check the "
+                "spelling and casing and try again." % SUBSCRIPTION,
+            )
+        )
+        result = discovery.discover(SUBSCRIPTION, runner=runner)
+        self.assert_withheld(result, runner)
+
+    def test_arm_reporting_the_subscription_not_found_is_a_denial(self):
+        runner = Recorder(
+            default=Completed(
+                returncode=1,
+                stderr="(SubscriptionNotFound) The subscription '%s' could "
+                "not be found." % SUBSCRIPTION,
+            )
+        )
+        result = discovery.discover(SUBSCRIPTION, runner=runner)
+        self.assert_withheld(result, runner)
+
+    def test_not_found_is_a_denial_only_for_the_subscription_read(self):
+        # The enumerating queries do not target the subscription by path, so
+        # "not found" there is some other failure and must not be described
+        # as a missing grant.
+        message = "Subscription 'x' not found."
+        self.assertIsNotNone(
+            discovery.denial_for(discovery.READABILITY_QUERY, message)
+        )
+        self.assertIsNone(discovery.denial_for(discovery.RESOURCES_QUERY, message))
+
+    def test_no_grant_at_the_subscription_is_a_denial(self):
+        self.assert_withheld(*self.discover())
+
+    def test_a_read_of_some_types_only_is_a_denial(self):
+        self.assert_withheld(
+            *self.discover({"actions": ["Microsoft.Compute/*/read"], "notActions": []})
+        )
+
+    def test_an_exclusion_that_could_remove_a_read_is_a_denial(self):
+        for excluded in ("Microsoft.Compute/*", "Microsoft.Storage/*/read", "*"):
+            with self.subTest(excluded=excluded):
+                self.assert_withheld(
+                    *self.discover({"actions": ["*"], "notActions": [excluded]})
+                )
+
+    def test_reader_and_owner_read_everything(self):
+        for grant in (READER, OWNER, {"actions": ["*/READ"]}):
+            with self.subTest(grant=grant):
+                result, runner = self.discover(grant)
+                self.assertTrue(result.complete)
+                self.assertEqual(3, len(runner.calls))
+
+    def test_exclusions_of_writes_alone_leave_the_read_whole(self):
+        # Contributor's shape. Refusing it would make the check refuse a
+        # role that reads everything.
+        result, _runner = self.discover(
+            {
+                "actions": ["*"],
+                "notActions": [
+                    "Microsoft.Authorization/*/Delete",
+                    "Microsoft.Authorization/*/Write",
+                    "Microsoft.Authorization/elevateAccess/Action",
+                ],
+            }
+        )
+        self.assertTrue(result.complete)
+
+    def test_one_whole_grant_is_enough_beside_a_narrowed_one(self):
+        # Effective access is the union of the entries.
+        result, _runner = self.discover(
+            {"actions": ["*"], "notActions": ["Microsoft.Compute/*"]}, READER
+        )
+        self.assertTrue(result.complete)
+
+    def test_an_answer_without_its_envelope_is_a_failure(self):
+        runner = Recorder(default=Completed(stdout=json.dumps({"error": "x"})))
+        with self.assertRaises(discovery.DiscoveryError) as caught:
+            discovery.discover(SUBSCRIPTION, runner=runner)
+        self.assertIn("'value'", str(caught.exception))
+
+    def test_the_read_is_a_get_to_the_named_subscription(self):
+        catalogue = discovery.load_catalogue(REPO_ROOT)
+        command = discovery.plan_query(
+            catalogue, discovery.READABILITY_QUERY, SUBSCRIPTION.upper()
+        )
+        url = command[command.index("--url") + 1]
+        self.assertEqual("get", command[command.index("--method") + 1])
+        self.assertTrue(url.startswith("/subscriptions/%s/" % SUBSCRIPTION), url)
+        self.assertIn(PERMISSIONS, url)
+        self.assertNotIn("{", url)
+
+    def test_a_path_that_does_not_name_the_subscription_once_is_refused(self):
+        catalogue = copy.deepcopy(discovery.load_catalogue(REPO_ROOT))
+        for item in catalogue["entries"]:
+            if item["id"] == discovery.READABILITY_QUERY:
+                item["queryText"] = "/providers/Microsoft.Authorization/permissions"
+        with self.assertRaises(discovery.DiscoveryError):
+            discovery.plan_query(catalogue, discovery.READABILITY_QUERY, SUBSCRIPTION)
 
 
 class TheParentOfASettingIsItsPrefix(unittest.TestCase):
