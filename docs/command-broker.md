@@ -71,6 +71,23 @@ az rest --method get --url /subscriptions/<id>/...
 
 The URL is structure, not payload, so the metacharacter rule above applies to it in full.
 
+## How the CLI is started
+
+The broker plans commands that begin with `az`, and the runner replaces that one token with whatever starts the CLI without a shell in between.
+
+| Where `az` resolves | What runs | Output decoded as |
+| --- | --- | --- |
+| An executable, as on Linux and macOS | The executable as found | The locale encoding |
+| A batch file (`az.cmd` or `az.bat`), as on Windows | The interpreter installed beside it, `..\python.exe`, with `-X utf8 -IBm azure.cli` | UTF-8 |
+| A batch file whose interpreter is missing | Nothing; the run is refused | Not applicable |
+| Not on `PATH` | Nothing; the run is refused | Not applicable |
+
+The batch file is never run. `CreateProcess` does not apply `PATHEXT`, so `az` cannot be started directly, and a `.cmd` file goes through `cmd.exe`, which parses every argument again. In a live run a `--query` value containing parentheses was echoed into stdout. The batch file does nothing beyond starting that interpreter, so starting it directly with the same arguments removes the batch layer and changes nothing else.
+
+`-X utf8` is a command-line option, so it survives the isolated mode (`-I`) that discards `PYTHONUTF8` and `PYTHONIOENCODING`. With it the CLI writes UTF-8 rather than the ANSI code page.
+
+The exact command line handed to `CreateProcess` for every catalogued query is pinned in a test, so a change in quoting shows up as a diff.
+
 ## What the broker adds
 
 `--output json` unless the caller named a format, because evidence is
