@@ -414,6 +414,118 @@ class TheDefaultRunnerReadsTheCliEncoding(unittest.TestCase):
         self.assertEqual(cli_like.lower(), ours.lower())
 
 
+class TheCliStartsWithoutABatchLayer(unittest.TestCase):
+    """Issue 140. Resolution is injected, so both legs of the matrix run
+    the Windows layout without an Azure CLI installed."""
+
+    INSTALL = os.path.join(os.sep + "opt", "CLI2")
+    BATCH = os.path.join(INSTALL, "wbin", "az.CMD")
+    INTERPRETER = os.path.join(INSTALL, "python.exe")
+
+    def launcher(self, found, exists=True):
+        return broker.cli_launcher(
+            which=lambda name: found if name == "az" else None,
+            isfile=lambda path: exists and path == self.INTERPRETER,
+        )
+
+    def test_a_batch_file_is_replaced_by_the_interpreter_it_starts(self):
+        self.assertEqual(
+            [self.INTERPRETER, "-X", "utf8", "-IBm", "azure.cli"],
+            self.launcher(self.BATCH),
+        )
+
+    def test_a_bat_file_is_treated_like_a_cmd_file(self):
+        bat = os.path.join(self.INSTALL, "wbin", "az.bat")
+        self.assertEqual(self.INTERPRETER, self.launcher(bat)[0])
+
+    def test_an_executable_is_run_as_found(self):
+        found = os.path.join(os.sep + "usr", "bin", "az")
+        self.assertEqual([found], self.launcher(found))
+
+    def test_a_batch_file_without_its_interpreter_is_refused(self):
+        with self.assertRaises(broker.CliUnavailable) as caught:
+            self.launcher(self.BATCH, exists=False)
+        self.assertIn("cmd.exe", str(caught.exception))
+
+    def test_a_missing_cli_is_refused_not_guessed(self):
+        with self.assertRaises(broker.CliUnavailable):
+            self.launcher(None)
+
+    def test_only_the_cli_name_is_replaced(self):
+        planned = broker.plan(["az", "graph", "query", "--graph-query", "Resources | count"])
+        launched = broker.launch_command(planned, launcher=["py", "-X", "utf8"])
+        self.assertEqual(["py", "-X", "utf8"] + planned[1:], launched)
+
+    def test_a_command_that_is_not_the_cli_runs_as_given(self):
+        other = [sys.executable, "-c", "pass"]
+        self.assertEqual(other, broker.launch_command(other, launcher=["unused"]))
+
+    def test_the_launched_cli_is_decoded_as_utf8(self):
+        launched = broker.launch_command(["az", "version"], launcher=self.launcher(self.BATCH))
+        self.assertEqual("utf-8", broker.output_encoding(launched))
+
+    def test_a_cli_not_in_utf8_mode_is_decoded_in_the_locale_encoding(self):
+        with mock.patch.object(broker.locale, "getencoding", return_value="cp1252"):
+            self.assertEqual("cp1252", broker.output_encoding([os.sep + "az", "version"]))
+
+    def test_the_default_runner_launches_and_decodes_utf8(self):
+        # A real child in UTF-8 mode, through the default runner. With the
+        # locale decode a Windows runner would read cp1252 mojibake here.
+        script = "import sys; sys.stdout.buffer.write('caf\\u00e7'.encode('utf-8'))"
+        launcher = [sys.executable, "-X", "utf8", "-c", script]
+        with mock.patch.object(broker, "cli_launcher", return_value=launcher):
+            completed = broker.default_runner(["az"])
+        self.assertEqual("caf\u00e7", completed.stdout)
+
+
+class EveryCataloguedQueryHasAPinnedCommandLine(unittest.TestCase):
+    """Issue 140. On Windows subprocess joins argv with list2cmdline, so this
+    string is exactly what CreateProcess receives. A quoting change shows up
+    here as a diff rather than as a query the CLI reads differently."""
+
+    INTERPRETER = r"C:\CLI2\python.exe"
+    SUBSCRIPTION = "00000000-0000-0000-0000-000000000000"
+    PREFIX = INTERPRETER + " -X utf8 -IBm azure.cli "
+    EXPECTED = {
+        "subscription-readability": (
+            "rest --method get --url /subscriptions/00000000-0000-0000-0000-"
+            "000000000000/providers/Microsoft.Authorization/permissions?"
+            "api-version=2022-04-01 --output json --only-show-errors"
+        ),
+        "subscription-resources": (
+            'graph query --graph-query "Resources | project id, name, type, '
+            'location, resourceGroup, subscriptionId | order by id asc" '
+            "--subscriptions 00000000-0000-0000-0000-000000000000 --first 1000 "
+            "--output json --only-show-errors"
+        ),
+        "resource-diagnostic-settings": (
+            "graph query --graph-query \"Resources | where type =~ "
+            "'microsoft.insights/diagnosticsettings' | project id | order by "
+            'id asc" --subscriptions 00000000-0000-0000-0000-000000000000 '
+            "--first 1000 --output json --only-show-errors"
+        ),
+    }
+
+    def test_every_query_is_pinned(self):
+        from zeroops import discovery
+
+        self.assertEqual(set(discovery.QUERY_ORDER), set(self.EXPECTED))
+
+    def test_each_command_line_is_exact(self):
+        from zeroops import discovery
+
+        catalogue = discovery.load_catalogue(REPO_ROOT)
+        launcher = [self.INTERPRETER, "-X", "utf8", "-IBm", "azure.cli"]
+        for identifier in discovery.QUERY_ORDER:
+            planned = discovery.plan_query(catalogue, identifier, self.SUBSCRIPTION, limit=1000)
+            launched = broker.launch_command(planned, launcher=launcher)
+            self.assertEqual(
+                self.PREFIX + self.EXPECTED[identifier],
+                subprocess.list2cmdline(launched),
+                identifier,
+            )
+
+
 class TheRefusalIsDistinguishableFromAFailure(unittest.TestCase):
     def test_a_refusal_is_its_own_exception_type(self):
         """A caller that could not tell the two apart would report an Azure

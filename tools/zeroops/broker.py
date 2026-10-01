@@ -42,6 +42,8 @@ layer rather than the failure of the first.
 """
 
 import locale
+import os
+import shutil
 import subprocess
 
 
@@ -385,24 +387,86 @@ class UndecodableOutput(ValueError):
     """The CLI answered in bytes that are not text in the expected encoding."""
 
 
-def output_encoding():
+class CliUnavailable(OSError):
+    """The Azure CLI cannot be started without a shell or batch layer."""
+
+
+# Windows installs the CLI as `az.cmd`. CreateProcess does not apply PATHEXT,
+# so `az` with shell=False is not found, and running the `.cmd` goes through
+# cmd.exe, which re-parses every argument: a `--query` value with parentheses
+# was echoed into stdout in the live run (issue 140). The batch file only
+# starts the interpreter installed beside it, so that interpreter is started
+# here directly, with the same arguments, and no shell or batch layer exists.
+#
+# `-X utf8` is a command-line option and so survives `-I`, which ignores
+# PYTHONUTF8 and PYTHONIOENCODING. It makes the output UTF-8 rather than the
+# ANSI code page, which removes the encoding guess issue 141 had to make.
+BATCH_SUFFIXES = (".cmd", ".bat")
+CLI_INTERPRETER_FROM_BATCH = os.path.join("..", "python.exe")
+CLI_MODULE_ARGS = ("-X", "utf8", "-IBm", "azure.cli")
+
+
+def cli_launcher(which=shutil.which, isfile=os.path.isfile):
+    """The argv prefix that starts the Azure CLI with no shell in between."""
+    found = which(CLI)
+    if not found:
+        raise CliUnavailable(
+            "the Azure CLI (%s) is not on PATH, so no query was issued." % CLI
+        )
+    if not found.lower().endswith(BATCH_SUFFIXES):
+        return [found]
+    interpreter = os.path.normpath(
+        os.path.join(os.path.dirname(found), CLI_INTERPRETER_FROM_BATCH)
+    )
+    if not isfile(interpreter):
+        raise CliUnavailable(
+            "%s is a batch file and the interpreter it starts was not found "
+            "at %s. Running the batch file would pass every argument through "
+            "cmd.exe, so the CLI is refused rather than run that way."
+            % (found, interpreter)
+        )
+    return [interpreter] + list(CLI_MODULE_ARGS)
+
+
+def launch_command(planned, launcher=None):
+    """The planned arguments with the CLI name replaced by its launcher.
+
+    Only the first token changes. Anything that is not an Azure CLI command
+    runs as given.
+    """
+    if not planned or planned[0] != CLI:
+        return list(planned)
+    launcher = cli_launcher() if launcher is None else launcher
+    return list(launcher) + list(planned[1:])
+
+
+def output_encoding(command=None):
     """The encoding the Azure CLI writes to a pipe.
 
-    The CLI starts its interpreter isolated (`-I`), so PYTHONIOENCODING and
-    PYTHONUTF8 never reach it, and it writes in the locale encoding: the ANSI
-    code page on Windows, UTF-8 on Linux. `locale.getencoding` reports that
-    encoding even when this interpreter runs in UTF-8 mode, which the text
-    mode of subprocess would silently follow instead (issue 141).
+    Started through the launcher above, the CLI runs in UTF-8 mode. Started
+    any other way it runs isolated (`-I`), so PYTHONIOENCODING and PYTHONUTF8
+    never reach it, and it writes in the locale encoding: the ANSI code page
+    on Windows, UTF-8 on Linux. `locale.getencoding` reports that encoding
+    even when this interpreter runs in UTF-8 mode, which the text mode of
+    subprocess would silently follow instead (issue 141).
     """
+    if command and _runs_in_utf8_mode(command):
+        return "utf-8"
     return locale.getencoding()
+
+
+def _runs_in_utf8_mode(command):
+    flags = list(CLI_MODULE_ARGS[:2])
+    return any(command[i:i + 2] == flags for i in range(1, len(command) - 1))
 
 
 def default_runner(planned):
     # Bytes, then an explicit decode in this thread. With text=True a decode
     # failure is raised inside subprocess's reader thread, printed, and
     # returned as stdout=None with exit code 0, which reads as an empty answer.
-    completed = subprocess.run(planned, capture_output=True, shell=False)
-    encoding = output_encoding()
+    command = launch_command(planned)
+    completed = subprocess.run(command, capture_output=True, shell=False)
+    encoding = output_encoding(command)
     try:
         stdout = completed.stdout.decode(encoding)
     except UnicodeDecodeError as failure:
