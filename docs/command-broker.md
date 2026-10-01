@@ -20,6 +20,7 @@ A verb is the last word before the first option. In
 | `list` | Enumerate resources in a scope. No side effect. |
 | `query` | Resource Graph read, the discovery mechanism ADR-0003 chose. |
 | `version` | Record the CLI version in evidence. Touches no subscription. |
+| `rest` | One GET to Azure Resource Manager, in the single shape described below. |
 
 Anything else is refused, including verbs nobody has classified. The refusal
 is decided by this list and never by a list of write verbs. A deny-list would
@@ -51,6 +52,24 @@ A payload token is still refused if it contains a newline, a carriage return or 
 What makes this safe is not that the value is trusted. It is that the broker runs the list through `subprocess` with `shell=False`, so a payload token is one argument and no shell ever parses it. The structural rule stays in force for every token that decides what the command *is*.
 
 The exemption is a registry rather than a heuristic. A heuristic that guessed which tokens were data would eventually guess that a structural one was. Following *some* flag is not enough; the flag has to be listed, with the reason beside it.
+
+## `az rest` is admitted in one shape
+
+`az rest` can write: its method is a parameter. Discovery needs it for one read that Resource Graph cannot answer, which is the list of actions the identity holds at the subscription. So it is allowed only as:
+
+```text
+az rest --method get --url /subscriptions/<id>/...
+```
+
+`REST_FLAGS` in `tools/zeroops/broker.py` is the complete list of flags that may follow the verb, each with its reason, and each may appear once.
+
+| Refused | Reason |
+|---------|--------|
+| A missing `--method`, or any method other than `get` | Any other method can change state. An absent one leaves the choice to the CLI default, which a future CLI could change. |
+| A `--url` that does not begin with a single `/` | The CLI prefixes a path with the current cloud's ARM endpoint. A full URL could send the caller's token elsewhere. |
+| Any other flag, including `--body`, `--headers`, `--resource`, short forms and `--flag=value` spellings | Refused because they are absent from the list, not because each one was recognised. |
+
+The URL is structure, not payload, so the metacharacter rule above applies to it in full.
 
 ## What the broker adds
 
