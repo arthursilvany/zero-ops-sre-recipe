@@ -574,6 +574,56 @@ class DiscoveryReportsWhatItCouldNotSee(unittest.TestCase):
         with self.assertRaises(discovery.DiscoveryError):
             discovery.discover("not-a-guid", runner=healthy_runner())
 
+
+class NoOutputIsNotAnEmptyAnswer(unittest.TestCase):
+    """Issue 141. A live run reported 663 resources as `complete, rows: 0`.
+
+    The CLI's output could not be decoded, subprocess handed back stdout=None
+    with exit code zero, and no output was read as no rows. Every case here
+    is the resources query answering successfully with nothing readable, after
+    a readable subscription, which is exactly the shape that was observed.
+    """
+
+    def unreadable(self, stdout):
+        return Recorder(
+            {
+                "ResourceContainers": rows(CONTAINER),
+                "microsoft.insights": rows(),
+            },
+            default=Completed(stdout=stdout),
+        )
+
+    def test_missing_output_on_success_is_a_failure(self):
+        with self.assertRaises(discovery.DiscoveryError) as caught:
+            discovery.discover(SUBSCRIPTION, runner=self.unreadable(None))
+        self.assertIn(discovery.RESOURCES_QUERY, str(caught.exception))
+        self.assertIn("no readable output", str(caught.exception))
+
+    def test_blank_output_on_success_is_a_failure(self):
+        for blank in ("", "   ", "\r\n"):
+            with self.subTest(blank=repr(blank)):
+                with self.assertRaises(discovery.DiscoveryError):
+                    discovery.discover(SUBSCRIPTION, runner=self.unreadable(blank))
+
+    def test_an_empty_envelope_is_still_an_empty_answer(self):
+        # The control. Without it, refusing everything would pass the cases
+        # above, and an empty subscription would become an error.
+        for empty in ("[]", json.dumps({"data": [], "count": 0})):
+            with self.subTest(empty=empty):
+                result = discovery.discover(
+                    SUBSCRIPTION, runner=self.unreadable(empty)
+                )
+                self.assertTrue(result.complete)
+                self.assertEqual([], result.rows)
+
+    def test_missing_readability_output_is_a_failure_and_not_a_denial(self):
+        # Reporting it as a denial would advise granting a permission the
+        # operator may already hold.
+        runner = Recorder(default=Completed(stdout=None))
+        with self.assertRaises(discovery.DiscoveryError):
+            discovery.discover(SUBSCRIPTION, runner=runner)
+        self.assertEqual(1, len(runner.calls))
+
     def test_nothing_is_issued_for_a_subscription_that_is_not_a_guid(self):
         runner = healthy_runner()
         with self.assertRaises(discovery.DiscoveryError):

@@ -32,6 +32,8 @@ The same holds for the two enumerating queries. If either is refused, the result
 
 A denial is never a shorter list.
 
+Nor is unreadable output an empty one. An empty answer is a parsed `[]` or `{"data": []}`. A query that exits zero with no readable output fails discovery instead. The runner decodes the CLI's bytes in the caller's thread with the locale encoding the Azure CLI writes in (its launcher runs Python with `-I`, so `PYTHONIOENCODING` has no effect), and raises on bytes that do not decode. A decode error inside a reader thread used to surface as no output and exit code zero, which read as "no resources".
+
 ## Why these queries and not more
 
 `wizard/discovery/` is a core path, so it ships no workload type in either direction. A default list of types to look for would be workload content in the core; a default list to skip would be the same content written backwards. Type eligibility arrives from an installed extension.
