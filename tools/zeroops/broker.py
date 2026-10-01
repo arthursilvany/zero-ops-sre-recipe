@@ -41,6 +41,7 @@ read-only guarantee is the RBAC grant enforced by Azure Resource Manager
 layer rather than the failure of the first.
 """
 
+import locale
 import subprocess
 
 
@@ -304,5 +305,37 @@ def invoke(command, runner=None, output="json"):
     return runner(planned)
 
 
+class UndecodableOutput(ValueError):
+    """The CLI answered in bytes that are not text in the expected encoding."""
+
+
+def output_encoding():
+    """The encoding the Azure CLI writes to a pipe.
+
+    The CLI starts its interpreter isolated (`-I`), so PYTHONIOENCODING and
+    PYTHONUTF8 never reach it, and it writes in the locale encoding: the ANSI
+    code page on Windows, UTF-8 on Linux. `locale.getencoding` reports that
+    encoding even when this interpreter runs in UTF-8 mode, which the text
+    mode of subprocess would silently follow instead (issue 141).
+    """
+    return locale.getencoding()
+
+
 def default_runner(planned):
-    return subprocess.run(planned, capture_output=True, text=True, shell=False)
+    # Bytes, then an explicit decode in this thread. With text=True a decode
+    # failure is raised inside subprocess's reader thread, printed, and
+    # returned as stdout=None with exit code 0, which reads as an empty answer.
+    completed = subprocess.run(planned, capture_output=True, shell=False)
+    encoding = output_encoding()
+    try:
+        stdout = completed.stdout.decode(encoding)
+    except UnicodeDecodeError as failure:
+        raise UndecodableOutput(
+            "the command's output is not %s text (%s), so it cannot be read "
+            "as an answer. Nothing was inferred from it." % (encoding, failure)
+        )
+    # stderr is only ever searched for denial signatures, never read as data.
+    stderr = completed.stderr.decode(encoding, errors="replace")
+    return subprocess.CompletedProcess(
+        completed.args, completed.returncode, stdout=stdout, stderr=stderr
+    )

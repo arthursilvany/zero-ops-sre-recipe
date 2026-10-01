@@ -16,6 +16,7 @@ import os
 import subprocess
 import sys
 import unittest
+from unittest import mock
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 TOOLS_DIR = os.path.join(REPO_ROOT, "tools")
@@ -274,6 +275,60 @@ class InvokeDecidesNothing(unittest.TestCase):
             source = handle.read()
         self.assertIn("shell=False", source)
         self.assertNotIn("shell=True", source)
+
+
+class TheDefaultRunnerReadsTheCliEncoding(unittest.TestCase):
+    """Issue 141. Each case runs a real child process, because the failure
+    lived at the     process boundary that injected runners never reach."""
+
+    def run_child(self, stdout_bytes, stderr_bytes=b"", code=0):
+        script = (
+            "import sys; sys.stdout.buffer.write(%r); "
+            "sys.stderr.buffer.write(%r); sys.exit(%d)"
+            % (stdout_bytes, stderr_bytes, code)
+        )
+        return broker.default_runner([sys.executable, "-c", script])
+
+    def test_output_in_the_cli_encoding_is_read_as_text(self):
+        with mock.patch.object(broker, "output_encoding", return_value="cp1252"):
+            completed = self.run_child(b'["caf\xe7"]')
+        self.assertEqual(0, completed.returncode)
+        self.assertEqual('["caf\u00e7"]', completed.stdout)
+
+    def test_undecodable_output_raises_instead_of_returning_nothing(self):
+        # The observed failure returned stdout=None with exit code zero.
+        with mock.patch.object(broker, "output_encoding", return_value="utf-8"):
+            with self.assertRaises(broker.UndecodableOutput) as caught:
+                self.run_child(b'["caf\xe7"]')
+        self.assertIn("utf-8", str(caught.exception))
+
+    def test_undecodable_stderr_still_returns_the_exit_code(self):
+        # stderr is searched for denial signatures, never read as data, so a
+        # stray byte there must not hide the failure it describes.
+        with mock.patch.object(broker, "output_encoding", return_value="utf-8"):
+            completed = self.run_child(b"", b"AuthorizationFailed \xe7", code=1)
+        self.assertEqual(1, completed.returncode)
+        self.assertIn("AuthorizationFailed", completed.stderr)
+
+    def test_the_encoding_does_not_follow_this_interpreters_utf8_mode(self):
+        # The CLI runs isolated and writes in the locale encoding whatever
+        # mode this interpreter is in. Compared across two children, so the
+        # assertion means something on a Windows runner, where the two
+        # encodings differ.
+        environment = dict(os.environ)
+        environment.pop("PYTHONUTF8", None)
+        environment["PYTHONPATH"] = TOOLS_DIR
+        ours = subprocess.run(
+            [sys.executable, "-X", "utf8", "-c",
+             "from zeroops import broker; print(broker.output_encoding())"],
+            capture_output=True, text=True, env=environment, check=True,
+        ).stdout.strip()
+        cli_like = subprocess.run(
+            [sys.executable, "-I", "-c",
+             "import locale; print(locale.getpreferredencoding(False))"],
+            capture_output=True, text=True, env=environment, check=True,
+        ).stdout.strip()
+        self.assertEqual(cli_like.lower(), ours.lower())
 
 
 class TheRefusalIsDistinguishableFromAFailure(unittest.TestCase):

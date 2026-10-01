@@ -290,8 +290,17 @@ class DiscoveryResult(object):
 
 
 def _decode(text, identifier):
-    if not text or not text.strip():
-        return []
+    # A successful `az graph query --output json` always prints a document,
+    # `{"data": []}` when nothing matched. Missing or blank output on success
+    # is therefore a failure to read the answer, and returning [] for it is
+    # how a 663-resource subscription was once reported as complete and empty
+    # (issue 141).
+    if text is None or not text.strip():
+        raise DiscoveryError(
+            "%s exited successfully but returned no readable output. An empty "
+            "result is an empty JSON document, never no output, so this is "
+            "reported as a failure rather than as zero rows." % identifier
+        )
     try:
         parsed = json.loads(text)
     except ValueError:
