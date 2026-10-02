@@ -165,9 +165,8 @@
       },
       {
         "path": "README.md",
-        "status": "planned",
-        "purpose": "Repository entry point, with counted files and steps.",
-        "materialisedBy": "T11.05"
+        "status": "present",
+        "purpose": "Repository entry point. T11.05 replaces its quickstart with counted files and steps."
       },
       {
         "path": "CONTRIBUTING.md",
