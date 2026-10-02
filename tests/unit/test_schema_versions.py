@@ -36,7 +36,7 @@ SUFFIX = ".schema.json"
 
 # A discovery that returns nothing satisfies every "for each found" assertion
 # vacuously, so the count is guarded rather than trusted.
-EXPECTED_SCHEMAS = 19
+EXPECTED_SCHEMAS = 20
 
 
 def schema_files():
