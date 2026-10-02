@@ -87,6 +87,9 @@ Three rules follow from that table and are enforced rather than requested:
 
 There is no `src/`, `infra/`, `config/` or `terraform/` directory, and none should be
 added. Authoring Terraform here is out of scope by constraint, not by preference.
+`tests/negative/test_iac_structure.py` refuses any tracked Terraform artifact, any ARM
+JSON template or parameter file, and any Bicep declaration that re-authors a resource
+the pinned upstream creates; see [`deploy/README.md`](deploy/README.md).
 
 Rules:
 

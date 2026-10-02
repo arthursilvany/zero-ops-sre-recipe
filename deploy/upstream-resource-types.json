@@ -1,0 +1,57 @@
+{
+  "$comment": "Resource types the pinned upstream template layer creates. Measured, not authored: produced by 'python -m zeroops.iac_structure --measure <FETCHED_TREE>' over every .bicep file in the verified tree, excluding 'existing' references. A Bicep file in this repository that declares one of these types without 'existing' re-authors upstream and fails tests/negative/test_iac_structure.py (T5.02, ADR-0002). Re-measure in the same change that raises deploy/upstream.lock; a mismatched commit fails the check.",
+  "upstreamCommit": "53e7b66ef79bccf0b79cc331d5c64bb03b75a4b0",
+  "measurement": "Measured on 2026-10-02 from the tree fetched at upstreamCommit and verified against the content digest in deploy/upstream.lock. Six .bicep files parsed, none refused.",
+  "resourceTypes": [
+    {
+      "type": "Microsoft.App/agents",
+      "declaredIn": [
+        "bicep/agent-core.bicep"
+      ]
+    },
+    {
+      "type": "Microsoft.App/agents/connectors",
+      "declaredIn": [
+        "bicep/agent-extensions.bicep"
+      ]
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "declaredIn": [
+        "bicep/agent-core.bicep",
+        "bicep/logic-app-bridge.bicep",
+        "bicep/role-assignments-target.bicep"
+      ]
+    },
+    {
+      "type": "Microsoft.Insights/components",
+      "declaredIn": [
+        "bicep/agent-core.bicep"
+      ]
+    },
+    {
+      "type": "Microsoft.Logic/workflows",
+      "declaredIn": [
+        "bicep/logic-app-bridge.bicep"
+      ]
+    },
+    {
+      "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+      "declaredIn": [
+        "bicep/agent-core.bicep"
+      ]
+    },
+    {
+      "type": "Microsoft.OperationalInsights/workspaces",
+      "declaredIn": [
+        "bicep/agent-core.bicep"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/resourceGroups",
+      "declaredIn": [
+        "bicep/main.bicep"
+      ]
+    }
+  ]
+}
