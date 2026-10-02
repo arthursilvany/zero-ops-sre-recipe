@@ -241,6 +241,44 @@ makes the evidence chain checkable by someone who was not there (FR-19, FR-23).
 Prints the canonical bytes instead of the digest, for diffing two documents that should
 hash alike and do not.
 
+## Audit role definitions in a compiled template
+
+```powershell
+.\bin\zeroops.ps1 audit-roles main.json
+```
+
+Reads a compiled ARM template, the JSON output of the Bicep build, and fails unless every
+role definition it can grant resolves to `core/policy/role-allow-list.json` (NEG-A,
+FR-33, CC-009). It needs no credentials and opens no connection, so it runs in CI on
+every change.
+
+The audit is deliberately strict in four places:
+
+| Situation | Verdict | Why |
+|-----------|---------|-----|
+| A role assignment with a `condition` | Judged as if it always deploys | The condition is a deployment-time value the audit cannot see. A Contributor grant behind `accessLevel == 'High'` is a grant the template can issue |
+| A role taken from a parameter, or built with `format()` | Fails as unresolvable | Moving the identifier one indirection away must not be the cheapest way past the audit |
+| A linked template | Fails as unauditable | Its grants are not in the output being read. Compile modules inline |
+| A custom role definition | Fails | Its permissions are whatever the template says; only measured built-in roles are listed |
+
+Beyond role assignments, any string anywhere in the template that names a role
+definition is checked too, so an identifier passed into a nested template as a value, or
+exposed as an output, is not outside the audit's view.
+
+```powershell
+.\bin\zeroops.ps1 audit-roles main.json --allow-list my-allow-list.json
+```
+
+`--allow-list` audits against another list, for reviewing a proposed change to it. The
+gate uses the committed one.
+
+Exit codes: `0` every role read-only, `1` rejected, `2` the template or the list could
+not be read.
+
+The audit judges the grants a template issues. It cannot see what a consumer-supplied
+identity already holds elsewhere in the subscription; that is checked at preview and
+after deployment (SEC-003).
+
 ## Lint the documentation
 
 ```powershell
