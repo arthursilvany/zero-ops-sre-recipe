@@ -36,7 +36,7 @@ def sample_rows():
             "location": "uksouth",
             "resourceGroup": "rg-one",
             "subscriptionId": SUBSCRIPTION,
-            "emitsSignal": True,
+            "flagged": True,
         },
         {
             "id": "/subscriptions/sub-one/rg-one/site-two",
@@ -45,7 +45,7 @@ def sample_rows():
             "location": "uksouth",
             "resourceGroup": "rg-one",
             "subscriptionId": SUBSCRIPTION,
-            "emitsSignal": False,
+            "flagged": False,
         },
     ]
 
@@ -200,8 +200,8 @@ class RedactionKeepsOnlyWhatItWasToldToKeep(unittest.TestCase):
         )
 
     def test_booleans_survive_because_they_identify_nobody(self):
-        self.assertTrue(self.redacted["resources"][0]["emitsSignal"])
-        self.assertFalse(self.redacted["resources"][1]["emitsSignal"])
+        self.assertTrue(self.redacted["resources"][0]["flagged"])
+        self.assertFalse(self.redacted["resources"][1]["flagged"])
 
     def test_equal_values_produce_equal_tokens_inside_one_document(self):
         """Without this a redacted inventory cannot be reasoned about."""

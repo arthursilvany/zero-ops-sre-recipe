@@ -22,15 +22,11 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fi
 
 SUBSCRIPTION = "3f2504e0-4f89-41d3-9a0c-0305e82c3301"
 
-# The one Azure type a core-path query may name, and why. An exception that
-# lives in a list with a reason beside it is reviewable; the same exception
-# spread through the queries is not.
-PLATFORM_TYPE_EXCEPTIONS = {
-    "microsoft.insights/diagnosticsettings": (
-        "The platform mechanism by which any resource emits diagnostics. "
-        "Naming it admits no workload and excludes none."
-    ),
-}
+# Azure types a core-path query may name, each with the reason. An exception
+# that lives in a list with a reason beside it is reviewable; the same
+# exception spread through the queries is not. Empty since issue 142 removed
+# the diagnostic-settings read, the only query that named a type.
+PLATFORM_TYPE_EXCEPTIONS = {}
 
 
 class Completed(object):
@@ -75,19 +71,10 @@ READER = {"actions": ["*/read"], "notActions": []}
 OWNER = {"actions": ["*"], "notActions": []}
 RESOURCE_A = {"id": "/subscriptions/s/rg/a", "name": "a", "type": "type.one/kind"}
 RESOURCE_B = {"id": "/subscriptions/s/rg/b", "name": "b", "type": "type.two/kind"}
-SETTING_A = {
-    "id": "/subscriptions/s/rg/a/providers/microsoft.insights/diagnosticSettings/d"
-}
 
 
-def healthy_runner(resources=(RESOURCE_A, RESOURCE_B), settings=(SETTING_A,)):
-    return Recorder(
-        {
-            PERMISSIONS: permissions(READER),
-            "microsoft.insights": rows(*settings),
-        },
-        default=rows(*resources),
-    )
+def healthy_runner(resources=(RESOURCE_A, RESOURCE_B)):
+    return Recorder({PERMISSIONS: permissions(READER)}, default=rows(*resources))
 
 
 class TheCatalogueIsSound(unittest.TestCase):
@@ -453,28 +440,19 @@ class DiscoveryReportsWhatItCouldNotSee(unittest.TestCase):
             [row["id"] for row in result.rows],
         )
 
-    def test_a_resource_with_a_diagnostic_setting_is_marked_as_emitting(self):
+    def test_signal_presence_is_not_reported_at_all(self):
+        # Issue 142. Resource Graph does not return diagnostic settings, so a
+        # signal field would be false on every row and ELI-003 would exclude
+        # every candidate with a false explanation. Absent beats always false.
         result = discovery.discover(SUBSCRIPTION, runner=healthy_runner())
-        emitting = {row["id"]: row["emitsSignal"] for row in result.rows}
-        self.assertEqual(
-            {"/subscriptions/s/rg/a": True, "/subscriptions/s/rg/b": False}, emitting
-        )
+        for row in result.rows:
+            self.assertNotIn("emitsSignal", row)
 
-    def test_a_resource_is_matched_to_its_setting_regardless_of_case(self):
-        # Azure returns the provider segment of a setting identifier in mixed
-        # case, and a resource identifier need not be spelled the same way in
-        # both answers. Comparing them as given would mark every resource as
-        # emitting no signal, which is a plausible wrong answer rather than
-        # an obvious failure.
-        resource = {"id": "/subscriptions/S/RG/A", "name": "a", "type": "t/k"}
-        setting = {
-            "id": "/subscriptions/s/rg/a"
-            "/providers/Microsoft.Insights/diagnosticSettings/d"
-        }
-        result = discovery.discover(
-            SUBSCRIPTION, runner=healthy_runner((resource,), (setting,))
-        )
-        self.assertEqual([True], [row["emitsSignal"] for row in result.rows])
+    def test_discovery_issues_exactly_the_readability_and_enumeration_reads(self):
+        runner = healthy_runner()
+        discovery.discover(SUBSCRIPTION, runner=runner)
+        self.assertEqual(2, len(runner.calls))
+        self.assertEqual((discovery.READABILITY_QUERY, discovery.RESOURCES_QUERY), discovery.QUERY_ORDER)
 
     def test_an_empty_subscription_is_a_complete_answer(self):
         # The control for the case below. An empty subscription is an answer,
@@ -514,36 +492,26 @@ class DiscoveryReportsWhatItCouldNotSee(unittest.TestCase):
         result = discovery.discover(SUBSCRIPTION, runner=runner)
         self.assertFalse(result.complete)
         self.assertEqual(
-            [discovery.RESOURCES_QUERY, discovery.DIAGNOSTIC_SETTINGS_QUERY],
+            [discovery.RESOURCES_QUERY],
             [d.query for d in result.denials],
         )
 
     def test_a_partial_result_cannot_be_read_as_a_whole_one(self):
-        runner = Recorder(
-            {
-                PERMISSIONS: permissions(READER),
-                "microsoft.insights": Completed(
-                    returncode=1, stderr="AuthorizationFailed"
-                ),
-            },
-            default=rows(RESOURCE_A),
+        result = discovery.DiscoveryResult(
+            SUBSCRIPTION,
+            rows=[RESOURCE_A],
+            denials=[discovery.Denial(discovery.RESOURCES_QUERY, "x")],
         )
-        result = discovery.discover(SUBSCRIPTION, runner=runner)
         with self.assertRaises(discovery.IncompleteDiscovery) as caught:
             result.rows
         self.assertIn("partial_rows", str(caught.exception))
 
     def test_the_partial_result_is_reachable_by_saying_so(self):
-        runner = Recorder(
-            {
-                PERMISSIONS: permissions(READER),
-                "microsoft.insights": Completed(
-                    returncode=1, stderr="AuthorizationFailed"
-                ),
-            },
-            default=rows(RESOURCE_A),
+        result = discovery.DiscoveryResult(
+            SUBSCRIPTION,
+            rows=[RESOURCE_A],
+            denials=[discovery.Denial(discovery.RESOURCES_QUERY, "x")],
         )
-        result = discovery.discover(SUBSCRIPTION, runner=runner)
         self.assertEqual(1, len(result.partial_rows()))
 
     def test_a_complete_result_reads_its_rows_without_ceremony(self):
@@ -577,10 +545,7 @@ class DiscoveryReportsWhatItCouldNotSee(unittest.TestCase):
 
     def test_a_wrapped_data_envelope_is_unwrapped(self):
         runner = Recorder(
-            {
-                PERMISSIONS: permissions(READER),
-                "microsoft.insights": rows(),
-            },
+            {PERMISSIONS: permissions(READER)},
             default=Completed(stdout=json.dumps({"data": [RESOURCE_A], "count": 1})),
         )
         result = discovery.discover(SUBSCRIPTION, runner=runner)
@@ -602,10 +567,7 @@ class NoOutputIsNotAnEmptyAnswer(unittest.TestCase):
 
     def unreadable(self, stdout):
         return Recorder(
-            {
-                PERMISSIONS: permissions(READER),
-                "microsoft.insights": rows(),
-            },
+            {PERMISSIONS: permissions(READER)},
             default=Completed(stdout=stdout),
         )
 
@@ -724,7 +686,7 @@ class ReadabilityMeansReadingEverything(unittest.TestCase):
             with self.subTest(grant=grant):
                 result, runner = self.discover(grant)
                 self.assertTrue(result.complete)
-                self.assertEqual(3, len(runner.calls))
+                self.assertEqual(2, len(runner.calls))
 
     def test_exclusions_of_writes_alone_leave_the_read_whole(self):
         # Contributor's shape. Refusing it would make the check refuse a
@@ -772,27 +734,6 @@ class ReadabilityMeansReadingEverything(unittest.TestCase):
                 item["queryText"] = "/providers/Microsoft.Authorization/permissions"
         with self.assertRaises(discovery.DiscoveryError):
             discovery.plan_query(catalogue, discovery.READABILITY_QUERY, SUBSCRIPTION)
-
-
-class TheParentOfASettingIsItsPrefix(unittest.TestCase):
-    def test_the_parent_is_read_from_the_setting_identifier(self):
-        self.assertEqual(
-            "/subscriptions/s/rg/a", discovery._parent_of(SETTING_A["id"])
-        )
-
-    def test_the_comparison_is_case_insensitive(self):
-        # Azure returns the provider segment in mixed case and the resource
-        # enumeration in lower case. Comparing them as given would mark every
-        # resource as emitting no signal, which is a plausible wrong answer.
-        self.assertEqual(
-            discovery._parent_of(SETTING_A["id"]),
-            discovery._parent_of(SETTING_A["id"].upper()),
-        )
-
-    def test_an_identifier_that_is_not_a_setting_keeps_its_whole_value(self):
-        self.assertEqual(
-            "/subscriptions/s/rg/a", discovery._parent_of("/SUBSCRIPTIONS/S/RG/A")
-        )
 
 
 class TheTextDigestIsDefinedOverText(unittest.TestCase):

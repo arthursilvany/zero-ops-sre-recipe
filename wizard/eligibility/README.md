@@ -56,11 +56,11 @@ If this rule excluded everything: The identity can reach the subscription but ca
 
 ### ELI-003 Emits an observable signal
 
-The resource exposes at least one signal that can be read without changing it. A resource that emits nothing observable cannot be investigated by a read-only agent, so listing it as a candidate would promise an investigation that could never happen.
+Not assessed in v1, so this rule excludes nothing. A candidate should expose a signal readable without changing it, since a read-only agent cannot investigate a silent resource. Discovery has no reliable read for this: Resource Graph does not return diagnostic settings, so the earlier check reported every resource as silent (issue 142). The operator confirms that each selected resource emits a signal.
 
-Decided at the signal stage; the platform answered this.
+Decided at the signal stage; you supplied this.
 
-If this rule excluded everything: Resources exist and are readable, but none of them emits a signal discovery could find. This usually means diagnostic collection was never configured. Configuring it is a prerequisite, not a workaround.
+If this rule excluded everything: This rule cannot be the reason the list is empty: signal presence is not assessed in v1 and the rule excludes nothing. Read the rules before and after it.
 
 ### ELI-004 Its type is declared eligible by an installed extension
 
