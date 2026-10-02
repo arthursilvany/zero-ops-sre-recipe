@@ -360,7 +360,7 @@ read-only invariant silently.
 
 ### Tasks
 
-- [ ] T5.01 `[human]` **(S4-07) Bicep composition over pinned upstream modules.** `deploy/compose/`; compose and parameterise, never re-author. Includes the managed-identity default and the existing-identity binding path. (FR-31, FR-34, FR-35, FR-36, ADR-0002)
+- [ ] T5.01 `[human]` **(S4-07) Bicep composition over pinned upstream modules.** `deploy/compose/`; compose and parameterise, never re-author. Includes the managed-identity default and the existing-identity binding path. (FR-31, FR-34, FR-35, FR-36, ADR-0002) **Blocked by ADR-0007 (Proposed): how the composition obtains read-only role assignments.**
 - [x] T5.02 `[copilot]` `[P]` **(S4-07) Anti-duplication and anti-Terraform structural checks.** Fail on hand-authored ARM JSON, on re-authoring an upstream-provided resource, and on any Terraform artifact. (ADR-0002, CON-12, NFR-25)
 - [ ] T5.03 `[human]` **(S4-08) Preview with full existing-assignment enumeration.** Includes stale-scope-entry detection and explicit confirmation defaulting to decline. Delivers NEG-B. (FR-20, FR-33, FR-34, SEC-003)
 - [x] T5.04 `[copilot]` **(S4-09) NEG-A — compiled-ARM role audit, offline.** The authoritative read-only check, credential-free. (FR-33, CC-009, SEC-001 layer one)
