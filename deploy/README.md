@@ -67,9 +67,40 @@ the operator's credentials may have changed. The steps:
 
 4. Update `securityReviewed` and `provenance` in the same commit, and state in the pull
    request what was reviewed and by whom.
-5. Run the compatibility tests. An upstream change that silently alters the composed
+5. Re-measure the resource types the new tree creates, and replace `resourceTypes` and
+   `upstreamCommit` in `deploy/upstream-resource-types.json` in the same commit:
+
+   ```sh
+   python -m zeroops.iac_structure --measure <FETCHED_TREE>
+   ```
+
+   Run it with `tools/` on `PYTHONPATH`. A list measured at another commit fails the
+   structural check described below, so the pin cannot move while the list stays behind.
+6. Run the compatibility tests. An upstream change that silently alters the composed
    parameters is a breakage even when every digest verifies correctly.
 
 A pull request that raises the pin without steps 2 and 4 should be rejected, because it
 converts a reviewed dependency into an unreviewed one while looking like routine
 maintenance.
+
+## What may be authored here
+
+ADR-0002 makes Bicep composed over the pinned upstream modules the only Infrastructure as
+Code this repository authors. `tests/negative/test_iac_structure.py` enforces it on every
+tracked file, in the release gate:
+
+| Refused | Why |
+|---|---|
+| Any Terraform artifact: `.tf`, `.tf.json`, `.tfvars`, `.tfstate`, `.tfplan`, `.terraform.lock.hcl`, `terragrunt.hcl`, or a `terraform/` or `.terraform/` directory | CON-12: Terraform is reached only through upstream entry points |
+| Any JSON file that is an ARM deployment template or parameter file | ARM JSON is compiled output. It is built when needed and never committed, so a tracked one is refused whether or not it was hand-written |
+| A Bicep `resource` declaration of a type listed in `deploy/upstream-resource-types.json` | It re-authors what upstream already creates. Compose the upstream module instead. An `existing` reference creates nothing and is allowed |
+
+The list in `deploy/upstream-resource-types.json` is measured from the verified pinned
+tree, not written by hand, and is tied to the lock by `upstreamCommit`. A child resource
+declared inside its parent's body is resolved to its full type, so nesting cannot hide a
+re-authored type. A declaration the check cannot resolve offline, such as an
+interpolated type, fails rather than passes.
+
+Role assignments are on the list because upstream creates them. A composition that
+needs a role assignment upstream does not grant has to change the list through a
+reviewed decision, not around it.

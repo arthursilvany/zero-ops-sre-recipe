@@ -111,6 +111,11 @@
         "purpose": "Immutable upstream commit digest plus fetched-tree digest (ADR-0001)."
       },
       {
+        "path": "deploy/upstream-resource-types.json",
+        "status": "present",
+        "purpose": "Resource types the pinned upstream creates, measured from the verified tree. Input to the anti-duplication check (T5.02)."
+      },
+      {
         "path": "deploy/README.md",
         "status": "present",
         "purpose": "Acquisition as a trust-boundary crossing, and the pin-bump procedure."
