@@ -1,0 +1,74 @@
+{
+  "schemaVersion": "1.0.0",
+  "description": "Every role definition the compiled deployment output may reference (NEG-A, FR-33, CC-009). The audit compares role definition identifiers only. A role is listed here because its recorded permissions are reads, and every permission that is not a read is accepted below by name, with its reason, so it is visible rather than implied. The read-only guarantee is the RBAC grant Azure Resource Manager enforces; this list is what the offline audit measures that grant against (SEC-001 layer one).",
+  "measuredOn": "2026-10-02",
+  "measurement": "Each identifier was read with the Azure CLI role definition listing, filtered by identifier, as an authenticated user in a lab tenant. The first permission block of each built-in definition was copied verbatim. Built-in identifiers are the same in every tenant.",
+  "roles": [
+    {
+      "roleDefinitionId": "acdd72a7-3385-48ef-bd42-f606fba81ae7",
+      "roleName": "Reader",
+      "actions": ["*/read"],
+      "notActions": [],
+      "dataActions": [],
+      "notDataActions": [],
+      "acceptedNonReadActions": [],
+      "acceptedNonReadDataActions": []
+    },
+    {
+      "roleDefinitionId": "43d0d8ad-25c7-4714-9337-8ba259a9fe05",
+      "roleName": "Monitoring Reader",
+      "actions": [
+        "*/read",
+        "Microsoft.OperationalInsights/workspaces/search/action",
+        "Microsoft.Support/*"
+      ],
+      "notActions": [],
+      "dataActions": [],
+      "notDataActions": [],
+      "acceptedNonReadActions": [
+        {
+          "permission": "Microsoft.OperationalInsights/workspaces/search/action",
+          "reason": "Runs a Log Analytics search and returns rows. It changes no resource state; the name ends in action because a query is submitted as a request body rather than read from a path."
+        },
+        {
+          "permission": "Microsoft.Support/*",
+          "reason": "Support-request operations on the subscription, including opening a support request. They change no workload resource and grant no access to workload data, but they are not reads, so they are listed here rather than passing silently. The built-in role carries them; removing them means a custom role, which this list does not admit."
+        }
+      ],
+      "acceptedNonReadDataActions": []
+    },
+    {
+      "roleDefinitionId": "73c42c96-874c-492b-b04d-ab87d138a893",
+      "roleName": "Log Analytics Reader",
+      "actions": [
+        "*/read",
+        "Microsoft.OperationalInsights/workspaces/analytics/query/action",
+        "Microsoft.OperationalInsights/workspaces/search/action",
+        "Microsoft.Support/*"
+      ],
+      "notActions": ["Microsoft.OperationalInsights/workspaces/sharedKeys/read"],
+      "dataActions": ["Microsoft.OperationalInsights/workspaces/jobs/export/action"],
+      "notDataActions": [],
+      "acceptedNonReadActions": [
+        {
+          "permission": "Microsoft.OperationalInsights/workspaces/analytics/query/action",
+          "reason": "Runs a Log Analytics query and returns rows. It changes no resource state; the name ends in action because a query is submitted as a request body rather than read from a path."
+        },
+        {
+          "permission": "Microsoft.OperationalInsights/workspaces/search/action",
+          "reason": "Runs a Log Analytics search and returns rows. It changes no resource state; the name ends in action because a query is submitted as a request body rather than read from a path."
+        },
+        {
+          "permission": "Microsoft.Support/*",
+          "reason": "Support-request operations on the subscription, including opening a support request. They change no workload resource and grant no access to workload data, but they are not reads, so they are listed here rather than passing silently. The built-in role carries them; removing them means a custom role, which this list does not admit."
+        }
+      ],
+      "acceptedNonReadDataActions": [
+        {
+          "permission": "Microsoft.OperationalInsights/workspaces/jobs/export/action",
+          "reason": "A data action on the workspace that starts an export job for query results. The built-in role carries it. The measurement established its name only, not where an export lands, so this acceptance is recorded for review rather than asserted harmless. Removing it means a custom role, which this list does not admit."
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zero-ops-sre-recipe.contracts/schemas/role-allow-list.schema.json",
+  "title": "Read-only role allow-list",
+  "description": "Describes core/policy/role-allow-list.json, the list every role definition identifier in the compiled deployment output must resolve to (NEG-A, FR-33, CC-009). Each entry records the permissions the role was measured to hold, so 'read-only' is a property a reader can check against the recorded actions rather than a label someone attached. Every action that is not a read is listed again as an accepted exception with its reason; the semantic check rejects a role carrying a non-read action that is not accepted, an acceptance that names no recorded action, and an acceptance in a shape that would admit writes broadly.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "description", "measuredOn", "measurement", "roles"],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0.0",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "The version of this schema the instance conforms to (FR-05, FR-29). Pinned with const so a document written against a different contract cannot validate."
+    },
+
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1000,
+      "description": "What this list is for, in the maintainer's words."
+    },
+
+    "measuredOn": {
+      "$ref": "#/$defs/isoDate",
+      "description": "The date the recorded permissions were read from the role definitions. Built-in role definitions can change; the date tells a reader how old the measurement is."
+    },
+
+    "measurement": {
+      "type": "string",
+      "minLength": 20,
+      "maxLength": 500,
+      "description": "How the recorded permissions were obtained, precisely enough to repeat. Without it the recorded actions are a claim with no stated source."
+    },
+
+    "roles": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "description": "Every role definition the compiled deployment output may reference. A role absent from this list fails the audit; there is no wildcard and no default.",
+      "items": { "$ref": "#/$defs/role" }
+    }
+  },
+
+  "$defs": {
+    "isoDate": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "description": "A date as YYYY-MM-DD."
+    },
+    "roleDefinitionId": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "description": "The role definition's GUID, lowercase. Built-in role definition identifiers are the same in every tenant, which is what lets an offline audit compare against them at all."
+    },
+    "permission": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 300,
+      "pattern": "^[A-Za-z0-9.*/_-]+$",
+      "description": "One action or data action exactly as the role definition states it."
+    },
+    "permissionList": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/permission" }
+    },
+    "acceptance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["permission", "reason"],
+      "properties": {
+        "permission": { "$ref": "#/$defs/permission" },
+        "reason": {
+          "type": "string",
+          "minLength": 40,
+          "maxLength": 600,
+          "description": "Why this non-read permission is tolerated on a read-only agent, including what is not known about it. A floor on length so the reason cannot be a placeholder."
+        }
+      }
+    },
+    "role": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "roleDefinitionId",
+        "roleName",
+        "actions",
+        "notActions",
+        "dataActions",
+        "notDataActions",
+        "acceptedNonReadActions",
+        "acceptedNonReadDataActions"
+      ],
+      "properties": {
+        "roleDefinitionId": { "$ref": "#/$defs/roleDefinitionId" },
+        "roleName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "The built-in role's name, for a reader. The audit compares identifiers only, because a name is not unique across custom roles."
+        },
+        "actions": { "$ref": "#/$defs/permissionList" },
+        "notActions": { "$ref": "#/$defs/permissionList" },
+        "dataActions": { "$ref": "#/$defs/permissionList" },
+        "notDataActions": { "$ref": "#/$defs/permissionList" },
+        "acceptedNonReadActions": {
+          "type": "array",
+          "uniqueItems": true,
+          "description": "Required even when empty. An empty list is the explicit claim that every recorded action is a read.",
+          "items": { "$ref": "#/$defs/acceptance" }
+        },
+        "acceptedNonReadDataActions": {
+          "type": "array",
+          "uniqueItems": true,
+          "description": "Required even when empty, for the same reason, over the data actions.",
+          "items": { "$ref": "#/$defs/acceptance" }
+        }
+      }
+    }
+  }
+}

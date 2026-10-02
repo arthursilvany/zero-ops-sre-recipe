@@ -42,6 +42,7 @@ fails just as an entry with no schema does.
 | Handoff record | `handoff-record.schema.json` | Recommended | Execution | Idempotency key distinguishes a retry from new work |
 | Assessment result | `assessment-result.schema.json` | Recommended | Execution | A diagnostic finding, deliberately not a change set (FR-57) |
 | Readiness result | `readiness-result.schema.json` | Recommended | Execution | Whether the workload can be observed at all |
+| Read-only role allow-list | `role-allow-list.schema.json` | Required | Framework | Describes `core/policy/role-allow-list.json`, the list every role definition in the compiled deployment output must resolve to (NEG-A, FR-33). Records each role's measured permissions and accepts every non-read permission by name, with its reason |
 | Core path declaration | `core-paths.schema.json` | Required | Framework | Describes `contracts/core-paths.json`, including the runtime identifiers it forbids |
 | Vocabulary | `vocabulary.schema.json` | Required | Framework | Describes `contracts/vocabulary/vocabulary.json`. Every enumerated value set defined in this directory appears there exactly once, with its origin recorded (FR-03) |
 | Eligibility rules | `eligibility-rules.schema.json` | Required | Framework | Describes `wizard/eligibility/eligibility-rules.json`. The published rules and the rules an empty discovery result reports are rendered from this one file, so the two cannot drift apart (FR-10, FR-12). Names no resource type in either direction (FR-63, CC-022) |

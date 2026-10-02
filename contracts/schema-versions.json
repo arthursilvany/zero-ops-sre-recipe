@@ -239,6 +239,20 @@
       ]
     },
     {
+      "schema": "role-allow-list",
+      "version": "1.0.0",
+      "contentDigest": "58d26b43b6c9e4bd13b22878a31f6fe469c62b0f949ea5a8ac937df979f26d0b",
+      "history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-02",
+          "breakingChanges": [],
+          "migration": "None required. This is the initial published version, so no consumer document predates it and nothing needs rewriting.",
+          "rationale": "Initial publication with T5.04 (NEG-A). Gives the read-only allow-list the offline role audit compares against a contract, so the recorded permissions and their accepted exceptions are checked rather than trusted."
+        }
+      ]
+    },
+    {
       "schema": "schema-versions",
       "version": "1.0.0",
       "contentDigest": "81e0b8a1505a50d67eacc9fd2ac1952a188cfe67afbd5af93cad81c6ca0cb57f",

@@ -35,6 +35,7 @@ from zeroops import failure_modes
 from zeroops import obligations
 from zeroops import policy
 from zeroops import references
+from zeroops import role_audit
 
 # JSON Schema treats "format" as an annotation by default, so a malformed
 # timestamp would pass structural validation. The semantic comparison below
@@ -606,6 +607,14 @@ def _tool_policy_semantics(instance):
     ]
 
 
+def _role_allow_list_semantics(instance):
+    """Every non-read permission accepted by name, and nothing else (NEG-A)."""
+    return [
+        Finding(finding.pointer, finding.message)
+        for finding in role_audit.allow_list_findings(instance)
+    ]
+
+
 def _eligibility_rules_semantics(instance):
     """The three constraints a rule set settles about itself (FR-10, FR-12).
 
@@ -674,6 +683,7 @@ SEMANTIC_RULES = {
     "scope-contract": _scope_contract_semantics,
     "evidence-manifest": _evidence_manifest_semantics,
     "handoff-record": _handoff_record_semantics,
+    "role-allow-list": _role_allow_list_semantics,
     "tool-policy": _tool_policy_semantics,
 }
 
@@ -731,6 +741,11 @@ SEMANTIC_COVERAGE = {
     "handoff-record": (HAS_RULE, "turn must not exceed the declared ceiling."),
     "query-catalogue": (STRUCTURE_ONLY, "entries are independent of one another."),
     "readiness-result": (STRUCTURE_ONLY, "a report of checks already performed."),
+    "role-allow-list": (
+        HAS_RULE,
+        "every non-read permission a role holds is accepted by name, and every "
+        "acceptance names a permission the role holds.",
+    ),
     "schema-versions": (
         STRUCTURE_ONLY,
         "compared against the schema files by its own check.",
@@ -1156,6 +1171,21 @@ def main(argv=None):
         help="Print the canonical bytes instead of the digest, for diffing.",
     )
 
+    audit_parser = subparsers.add_parser(
+        "audit-roles",
+        help="Audit a compiled ARM template's role definitions against the "
+        "read-only allow-list, offline and with no credentials (NEG-A, FR-33).",
+    )
+    audit_parser.add_argument(
+        "target",
+        help="Path to the compiled ARM template, the JSON output of the Bicep build.",
+    )
+    audit_parser.add_argument(
+        "--allow-list",
+        default=None,
+        help="Override the allow-list path. Defaults to %s." % role_audit.ALLOW_LIST_PATH,
+    )
+
     args = parser.parse_args(argv)
 
     if args.command is None:
@@ -1164,6 +1194,9 @@ def main(argv=None):
 
     if args.command == "check-core":
         return _run_check_core()
+
+    if args.command == "audit-roles":
+        return role_audit.run(args.target, args.allow_list)
 
     if args.command == "test":
         return _run_test(args)
