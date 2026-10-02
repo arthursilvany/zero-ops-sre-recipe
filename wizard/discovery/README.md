@@ -4,13 +4,12 @@ The guided setup reads a subscription to propose candidates. This directory hold
 
 ## What is read
 
-Three reads, all in [`query-catalogue.json`](query-catalogue.json), all read-only, all issued through the command broker. The first is an Azure Resource Manager GET whose catalogued text is a request path; the other two are Resource Graph queries.
+Two reads, both in [`query-catalogue.json`](query-catalogue.json), both read-only, both issued through the command broker. The first is an Azure Resource Manager GET whose catalogued text is a request path; the second is a Resource Graph query.
 
 | Query | What it answers |
 |---|---|
 | `subscription-readability` | Can this identity read every resource in the named subscription? |
 | `subscription-resources` | Which resources can it read there? |
-| `resource-diagnostic-settings` | Which of those emit a signal that can be read without changing them? |
 
 Each entry records the query text, a SHA-256 over that text, and the date it was reviewed. The hash is recomputed before any query is issued. A catalogue edited after review validates against its schema perfectly well; the hash is the only thing that notices, which is what "integrity-verified" has to mean to be worth stating.
 
@@ -40,7 +39,13 @@ Nor is unreadable output an empty one. An empty answer is a parsed `[]` or `{"da
 
 `wizard/discovery/` is a core path, so it ships no workload type in either direction. A default list of types to look for would be workload content in the core; a default list to skip would be the same content written backwards. Type eligibility arrives from an installed extension.
 
-`resource-diagnostic-settings` names one Azure type, and that is a deliberate exception rather than an oversight. `microsoft.insights/diagnosticSettings` is the platform mechanism by which *any* resource emits diagnostics. Naming it admits no workload and excludes none. The exception is asserted by a test, so widening it is a visible act.
+No query names an Azure type. A test asserts it, against a list of permitted platform types that is empty, so naming one is a visible act.
+
+## Signal presence is not assessed in v1
+
+Discovery does not report whether a resource emits a signal, and rule ELI-003 excludes nothing. An earlier read asked Resource Graph for `microsoft.insights/diagnosticSettings`. In a live run it returned no rows for a subscription of 663 resources, while ARM showed diagnostic settings on 4 of 60 sampled resources: diagnostic settings are extension resources, and Resource Graph's `Resources` table does not hold them. Every resource was therefore reported as emitting nothing, and ELI-003 would have excluded every candidate with an explanation that sent the operator to configure diagnostics that already existed.
+
+A field that is always false is worse than no field, so the read and the field were removed rather than kept as a hint. The operator confirms signal presence for each selected resource. Restoring the check needs a source verified live to report a known diagnostic setting; the options are a per-resource ARM read, which scales with the subscription and collides with the tool-call limit, or a Resource Graph table other than `Resources`.
 
 Tags are not projected. A tag is free text an operator controls, and is the likeliest place a secret-shaped value turns up. Projecting one would put it in the discovery output, and from there into any bug report made from that output. Two controls make that decision hold. The field allow-list on the emitter, described in [`../../docs/scope-contract.md`](../../docs/scope-contract.md), means a selector for a tag cannot be derived from a discovery row at all, so it has to be typed deliberately. The negative test in `tests/negative/test_secret_shaped_tag.py` drives a row carrying a secret-shaped tag through the emitter and asserts the value reaches no part of the contract, and that the one route a tag value can take is refused. Both controls now exist, and the field still stays out: they contain the value rather than make it safe to read.
 

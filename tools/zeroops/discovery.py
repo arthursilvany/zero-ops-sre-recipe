@@ -55,14 +55,19 @@ from . import broker, canonical, policy
 
 CATALOGUE_PATH = "wizard/discovery/query-catalogue.json"
 
-# The three reads the step issues, in the order it issues them. Readability
-# first: the other two are meaningless until it is known whether an empty
-# answer means empty or means withheld.
+# The two reads the step issues, in the order it issues them. Readability
+# first: enumeration is meaningless until it is known whether an empty answer
+# means empty or means withheld.
+#
+# There is no read for signal presence. Diagnostic settings are extension
+# resources, absent from Resource Graph's Resources table: a live run found
+# none in a subscription where ARM showed several, so every resource would
+# have been reported as emitting nothing (issue 142). A field that is always
+# false is worse than no field, so v1 does not assess signal presence (ELI-003).
 READABILITY_QUERY = "subscription-readability"
 RESOURCES_QUERY = "subscription-resources"
-DIAGNOSTIC_SETTINGS_QUERY = "resource-diagnostic-settings"
 
-QUERY_ORDER = (READABILITY_QUERY, RESOURCES_QUERY, DIAGNOSTIC_SETTINGS_QUERY)
+QUERY_ORDER = (READABILITY_QUERY, RESOURCES_QUERY)
 
 # Reads issued to Azure Resource Manager through `az rest` rather than to
 # Resource Graph. Their catalogued text is an ARM request path, with
@@ -75,7 +80,6 @@ SUBSCRIPTION_PLACEHOLDER = "{subscription}"
 ENVELOPE_FOR = {
     READABILITY_QUERY: "value",
     RESOURCES_QUERY: "data",
-    DIAGNOSTIC_SETTINGS_QUERY: "data",
 }
 
 # The actions that grant a read of every resource type. Resource Graph
@@ -100,7 +104,6 @@ SUBSCRIPTION_PATTERN = re.compile(
 PERMISSION_FOR = {
     READABILITY_QUERY: "*/read",
     RESOURCES_QUERY: "Microsoft.ResourceGraph/resources/read",
-    DIAGNOSTIC_SETTINGS_QUERY: "Microsoft.ResourceGraph/resources/read",
 }
 
 # Substrings Azure uses when it refuses for want of permission, lowercased.
@@ -481,28 +484,5 @@ def discover(subscription, runner=None, catalogue=None, root=None, limit=None):
         catalogue, RESOURCES_QUERY, subscription, runner, limit=limit
     )
     denials = [denial] if denial is not None else []
-
-    signals, denial = run_query(
-        catalogue, DIAGNOSTIC_SETTINGS_QUERY, subscription, runner, limit=limit
-    )
-    if denial is not None:
-        denials.append(denial)
-
-    emitting = {_parent_of(item.get("id", "")) for item in signals}
-    for row in rows:
-        row["emitsSignal"] = row.get("id", "").lower() in emitting
-
     return DiscoveryResult(subscription, rows=rows, denials=denials)
 
-
-def _parent_of(diagnostic_setting_id):
-    """The resource a diagnostic setting is attached to.
-
-    A setting identifier is the resource identifier followed by the provider
-    path. Splitting on that path is how the parent is read without a second
-    query for every resource.
-    """
-    lowered = (diagnostic_setting_id or "").lower()
-    marker = "/providers/microsoft.insights/diagnosticsettings/"
-    index = lowered.find(marker)
-    return lowered[:index] if index != -1 else lowered

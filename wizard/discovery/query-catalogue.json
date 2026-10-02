@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0.0",
   "name": "discovery-defaults",
-  "description": "The reads the guided discovery step issues: one Azure Resource Manager GET, whose text is a request path, and two Resource Graph queries. Framework defaults only. Every entry is workload-neutral and names no workload type, because wizard/discovery/ is a core path (FR-63, CC-022, CON-11). Each query is written on a single line so it travels as one argument and records as one line of evidence.",
+  "description": "The reads the guided discovery step issues: one Azure Resource Manager GET, whose text is a request path, and one Resource Graph query. Signal presence is not read in v1 (issue 142). Framework defaults only. Every entry is workload-neutral and names no workload type, because wizard/discovery/ is a core path (FR-63, CC-022, CON-11). Each query is written on a single line so it travels as one argument and records as one line of evidence.",
   "entries": [
     {
       "id": "subscription-readability",
@@ -20,15 +20,6 @@
       "queryHash": "3d10a79f8f8392073532b925d722842aee7ad7acf45e45db82207c6e66a81c0e",
       "reviewedAt": "2026-09-29T00:00:00Z",
       "purpose": "Enumerate every resource the identity can read. It filters on no type, because deciding which types are candidates belongs to an installed extension (ELI-004) and a default type filter here would be workload content in a core path. The projection is a fixed field list rather than a wildcard, so no row carries data nobody chose to collect. Tags are absent: a tag is operator-controlled free text and the likeliest place a secret-shaped value appears. Ordered by id, for byte-stable output."
-    },
-    {
-      "id": "resource-diagnostic-settings",
-      "origin": "frameworkDefault",
-      "capabilityClass": "readResourceMetadata",
-      "queryText": "Resources | where type =~ 'microsoft.insights/diagnosticsettings' | project id | order by id asc",
-      "queryHash": "a59d48c5fb2f10ca0d32a1e7102c72add3bfe6d912d1206ae2ff7065e8c93fa2",
-      "reviewedAt": "2026-09-29T00:00:00Z",
-      "purpose": "Find which resources emit a signal readable without changing them, which is the question ELI-003 asks. The type named here is the Azure mechanism by which any resource emits diagnostics: a platform observability type rather than a workload type, admitting no workload and excluding none. Only the setting identifier is projected, because the parent resource is its prefix, and the setting's own properties would carry workspace and destination identifiers this step has no use for."
     }
   ]
 }

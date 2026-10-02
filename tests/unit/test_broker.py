@@ -498,12 +498,6 @@ class EveryCataloguedQueryHasAPinnedCommandLine(unittest.TestCase):
             "--subscriptions 00000000-0000-0000-0000-000000000000 --first 1000 "
             "--output json --only-show-errors"
         ),
-        "resource-diagnostic-settings": (
-            "graph query --graph-query \"Resources | where type =~ "
-            "'microsoft.insights/diagnosticsettings' | project id | order by "
-            'id asc" --subscriptions 00000000-0000-0000-0000-000000000000 '
-            "--first 1000 --output json --only-show-errors"
-        ),
     }
 
     def test_every_query_is_pinned(self):
