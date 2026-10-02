@@ -162,10 +162,9 @@ Edit the pinned modules to remove the grants.
 
 ## Decision
 
-**Not yet decided.**
-
-**Recommendation: Option 3**, with Option 4 pursued in parallel so that a future pin bump
-can retire the local role assignments.
+**Option 3**, chosen by the project owner on 2026-10-02, with Option 4 pursued in
+parallel so that a future pin bump can retire the local role assignments. The status stays
+Proposed until another team member reviews this record.
 
 Option 3 is the only option that meets the first and third priorities, which are the
 product claim and its evidence. It keeps the second priority except for a narrow
@@ -185,6 +184,30 @@ assumed:
 If the first fact fails, this ADR returns to the option list with that evidence, because
 it changes what the first priority can achieve.
 
+## Lab Evidence
+
+Measured on 2026-10-02 in a lab subscription, against the pinned upstream deployed with
+`skipRoleAssignments = true`, `accessLevel = Low`, `actionMode = Review` and the Log
+Analytics connector enabled. The composition grants were applied by hand to reproduce
+Option 3. Every lab resource was deleted afterwards.
+
+| Fact | Result | Evidence |
+|---|---|---|
+| Post deploy roles | The user-assigned identity had no roles. The system identity still received Reader and Log Analytics Reader on the target resource group, outside the skip flag. | ARM role assignment listing |
+| Negative control | With no roles on the user-assigned identity, the agent's read-only CLI call failed with subscription not found and the agent asked for on-behalf-of approval. The CLI therefore runs as the user-assigned identity. | Thread messages, `azCliExecution` status |
+| First fact | Confirmed. With Reader and Log Analytics Reader on the target resource group and Monitoring Reader on the agent resource group, the agent completed resource reads and a Log Analytics query with no administrator role and no on-behalf-of approval. | Thread final message `step1=ok step2=ok` |
+| Second fact | Confirmed for resource reads, knowledge graph search and CLI log queries. Log Analytics data access lagged the role grant: the query failed at about seven minutes and succeeded at about thirty two minutes. | Two threads, timed against the grant |
+| Second fact, connector | Not confirmed. The upstream Log Analytics connector was provisioned with the system identity and was not listed by the agent's connector tools. The cause is unmeasured and no RBAC denial was observed. | `ListConnectors` returned an empty list |
+| Third fact | Confirmed through the data plane API. A subscription Owner received 403 on agent data plane calls. About thirty five seconds after SRE Agent Administrator was granted on the agent resource, the same calls returned 200 and trigger creation returned 201. The portal UI was not exercised. | HTTP status codes before and after the grant |
+
+Observations recorded for the runbook, unrelated to the decision itself:
+
+- Firing an HTTP trigger returned 401 with an ARM audience token and 202 with a token for
+  the agent data plane audience.
+- The trigger body field is `agentPrompt`. A body using `prompt` is accepted, stores an
+  empty prompt, and firing still returns 202. A 202 only means the run was queued, so a
+  verification step must read the stored trigger and the resulting thread.
+
 ## Implementation Notes
 
 If Option 3 is accepted, it implies the following changes:
@@ -197,6 +220,15 @@ If Option 3 is accepted, it implies the following changes:
   allow-list, and an unresolvable one fails. No other upstream type gains an exception.
 - **T5.06** (`zeroops verify`) still checks effective permissions after deployment. The
   offline result does not replace that check (FR-33).
+- **T5.01:** Monitoring Reader for the user-assigned identity goes on the agent resource
+  group, matching the upstream scope. Reader and Log Analytics Reader go on each target
+  resource group.
+- **T5.06:** allow for Log Analytics data access propagation, measured above at more than
+  seven minutes, before declaring a failed probe. Verification reads the stored trigger
+  and the thread result instead of trusting the 202.
+- **Follow up:** decide whether the composition creates the Log Analytics connector with
+  the user-assigned identity, after measuring why the system identity connector is not
+  visible to the agent tools.
 
 ## References
 

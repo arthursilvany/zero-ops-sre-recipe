@@ -13,7 +13,6 @@ local.settings.json
 appsettings.*.local.json
 .azure/
 .credentials/
-prd.md
 
 # Upstream secrets-file pattern (FR-49, SEC-013). The pinned upstream template
 # layer writes connector credentials to 'connectors.secrets.env' next to the
