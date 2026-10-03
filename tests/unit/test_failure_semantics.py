@@ -59,7 +59,7 @@ def declared_states():
 
 
 BASE_RECORD = {
-    "schemaVersion": "1.0.0",
+    "schemaVersion": "1.1.0",
     "executionId": "<EXECUTION_ID>",
     "idempotencyKey": "<IDEMPOTENCY_KEY>",
     "turn": 1,
@@ -552,3 +552,59 @@ class TheContractDocumentsTheMapping(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TheFR77ClassesTellTheOperatorWhatToDo(unittest.TestCase):
+    """FR-77 classes were observed live, so each must name a cause and a recovery."""
+
+    def fr77(self):
+        return [
+            entry
+            for entry in failure_modes.FAILURE_CLASSES
+            if entry.name in failure_modes.FR77_CLASSES
+        ]
+
+    def test_every_fr77_name_is_registered(self):
+        self.assertEqual(
+            sorted(entry.name for entry in self.fr77()),
+            sorted(failure_modes.FR77_CLASSES),
+        )
+        self.assertEqual(len(failure_modes.FR77_CLASSES), 4)
+
+    def test_each_fr77_class_cites_fr77(self):
+        for entry in self.fr77():
+            self.assertEqual(entry.citation, "Functional Requirements, FR-77", entry.name)
+
+    def test_each_fr77_class_names_a_probable_cause_and_a_recovery_action(self):
+        for entry in self.fr77():
+            self.assertTrue(entry.probable_cause and len(entry.probable_cause) >= 40, entry.name)
+            self.assertTrue(entry.recovery_action and len(entry.recovery_action) >= 40, entry.name)
+
+    def test_the_fr77_states_are_the_ones_the_requirement_assigns(self):
+        expected = {
+            "awaitingApproval": ("incomplete", False),
+            "connectorNotVisibleToAgent": ("failed", False),
+            "noToolUse": ("failed", False),
+            "deliveryFailed": ("incomplete", True),
+        }
+        actual = {e.name: (e.execution_state, e.retryable) for e in self.fr77()}
+        self.assertEqual(actual, expected)
+
+    def test_a_record_still_declaring_the_previous_version_is_refused(self):
+        instance = record(
+            schemaVersion="1.0.0",
+            executionState="failed",
+            terminationReason="noToolUse",
+        )
+        self.assertFalse(
+            jsonschema.Draft202012Validator(handoff_schema()).is_valid(instance)
+        )
+
+    def test_each_fr77_reason_is_refused_against_a_state_it_does_not_produce(self):
+        validator = jsonschema.Draft202012Validator(handoff_schema())
+        for entry in self.fr77():
+            for state in ("incomplete", "failed"):
+                if state == entry.execution_state:
+                    continue
+                instance = record(executionState=state, terminationReason=entry.name)
+                self.assertFalse(validator.is_valid(instance), (entry.name, state))
