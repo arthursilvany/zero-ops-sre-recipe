@@ -162,7 +162,7 @@
   "$defs": {
     "schemaVersion": {
       "type": "string",
-      "const": "1.0.0",
+      "const": "1.1.0",
       "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
       "description": "The version of this schema the instance conforms to (FR-05, FR-29). Pinned with const rather than left to the pattern: without it an instance could declare any version at all and still validate, which made the declaration decorative (NFR-21)."
     },
@@ -194,7 +194,11 @@
         "concurrentScopeConflict",
         "frameworkVersionIncompatible",
         "executionLimitReached",
-        "accessNotGranted"
+        "accessNotGranted",
+        "awaitingApproval",
+        "connectorNotVisibleToAgent",
+        "noToolUse",
+        "deliveryFailed"
       ],
       "description": "Every failure class the specification names, closed. A closed set is what makes the FR-07 mapping checkable: an open one would let a run explain itself in text that nothing can aggregate and no state can be derived from. The entry-level counterpart is unobservedReason on the evidence manifest, which answers why one source was not read rather than why the run stopped."
     },
@@ -204,7 +208,9 @@
         "deploymentPartiallyApplied",
         "roleAssignmentNotYetEffective",
         "dataSourceUnreachable",
-        "executionLimitReached"
+        "executionLimitReached",
+        "awaitingApproval",
+        "deliveryFailed"
       ],
       "description": "The subset that produces an incomplete execution. Each left partial work that remains valid, which is precisely what distinguishes incomplete from failed. Expressed as its own set rather than as prose so that moving a reason between states requires editing the contract."
     },
@@ -213,7 +219,9 @@
       "enum": [
         "discoveryProviderUnavailable",
         "concurrentScopeConflict",
-        "frameworkVersionIncompatible"
+        "frameworkVersionIncompatible",
+        "connectorNotVisibleToAgent",
+        "noToolUse"
       ],
       "description": "The subset that produces a failed execution. Each is a case where continuing would have produced output drawn against a world the run could not establish, so there is no partial result worth keeping."
     }
