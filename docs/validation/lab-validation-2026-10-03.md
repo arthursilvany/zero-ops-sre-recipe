@@ -138,3 +138,56 @@ original observations or treat them as new measurements.
 | Recipe security invariant | The recipe remains read-only. NEG-A and the read-only role allow-list remain unchanged. This exception is not evidence of least-privilege compliance. |
 | Handoff schema | The owner accepts handoff schema version 1.1.0. |
 | ADR-0007 | The owner confirmed reviewed and approved. Repository guidance still requires review by at least one other team member before the ADR can be marked Accepted. |
+
+## Functional connector follow-up, 2026-10-03
+
+Actual agent tool execution now proves Log Analytics query authorization for the laboratory
+workspace. The aggregate returned no matching rows; this does not establish dataset
+availability or ingestion health. The baseline and owner decisions above remain historical.
+
+| Evidence | Observed result |
+|---|---|
+| Agent and scope | `zero-ops-sre-recipe`, restricted to `rg-sre-lab`, workspace `law-<suffix>` and API `ca-grubify-<suffix>` |
+| Temporary trigger | One uniquely named trigger; create 201, read-back 200, stored prompt exactly matched all 1,878 characters, mode `review`, fire 202 at 16:02:48.6437363 UTC |
+| Actual query tool | `system-mcp-monitor_monitor_workspace_log_query`, server `system-mcp-monitor`, status `Completed`, no tool error |
+| Execution window | Started 16:03:14.6453363 UTC, completed 16:03:19.4007506 UTC |
+| Target verification | Tool parameters contained `resource-group=rg-sre-lab`; subscription matched the explicit lab subscription and workspace matched `properties.customerId` from an ARM GET of the named workspace inside this group |
+| Query parameters | `subscription=<subscription-id>`, `workspace=<workspace-id>`, `table=ContainerAppConsoleLogs_CL`, `hours=1`, `limit=1`; KQL itself restricts data to the last 30 minutes and the exact API name |
+| Tool result | `{"status":200,"message":"Success","results":[{"Rows":"0","Latest":"null"}],"duration":0}` |
+| Completion | Unique own-line sentinel in the final agent response at 16:03:32.8983972 UTC, excluding the instruction echo |
+| Cleanup | Delete 200 and subsequent GET 404 for the same temporary trigger; no trigger remains |
+| Frontend HTTP probe | Existing ingress root returned 200 at 16:05:39.4750757 UTC; resource running status `Running` |
+| API HTTP probe | Existing ingress root returned 404 at 16:05:38.0968490 UTC; resource running status `Running`. Root is not established as a health route, so API health is not claimed |
+
+The exact executed KQL below uses only the resource-name placeholder in this committed copy.
+Local verification compared the actual command to the requested exact laboratory API name:
+
+```kusto
+ContainerAppConsoleLogs_CL
+| where TimeGenerated >= ago(30m)
+| where ContainerAppName_s == "ca-grubify-<suffix>"
+| summarize Rows=count(), Latest=max(TimeGenerated)
+```
+
+### Evidence qualifications
+
+- The prompt requested `ListConnectors` before the query. The run exposed one MCP execution,
+  the successful workspace query; no separate agent `ListConnectors` execution was observed.
+  A subsequent connector-list GET returned 200. Listing is not the basis for the pass.
+- The session harness initially matched the literal `PendingAuthorization` in the echoed
+  instruction and deleted the trigger early. Inspection of the actual structured execution
+  status found no authorization request. The already-started run continued, completed the
+  query and emitted its final sentinel. Deleting a trigger does not cancel an existing run.
+  The local detector now examines status fields rather than searching instruction text.
+- No second trigger, approval, caller-identity delegation, connector change, workload fault,
+  web search, RBAC change or boundary change was performed. The inspected run contained only
+  the query tool execution; all ARM reads targeted named resources inside `rg-sre-lab`.
+- Sanitized session evidence records the actual tool parameters, result, timings, target
+  equality checks, completion and cleanup. No raw console logs or credentials are persisted
+  in the repository.
+- Issue 167 meets its functional-access criterion and can close as completed. Issue 166
+  remains the deferred elevated-role remediation; this query does not demonstrate least
+  privilege. Issue 168 remains the independent-review blocker. ADR-0007 stays `Proposed`;
+  handoff schema 1.1.0 remains approved.
+- Live framework commands remain unimplemented. This bounded runtime validation does not
+  constitute project completion or a full security review.
