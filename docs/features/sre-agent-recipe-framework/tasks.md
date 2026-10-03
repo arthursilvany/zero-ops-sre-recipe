@@ -4,7 +4,7 @@
 **Date**: 2026-09-23
 **Status**: Draft
 **Source plan**: [plan.md](plan.md) (Slices 3, 4, 5)
-**Source specification**: [spec.md](spec.md) v1.3
+**Source specification**: [spec.md](spec.md) v1.4
 **Security review**: [security-review-architecture.md](security-review-architecture.md)
 **Binds to**: ADR-0001, ADR-0002, ADR-0003, ADR-0004 (all Accepted)
 **Board**: GitHub — `arthursilvany/zero-ops-sre-recipe`
@@ -309,6 +309,7 @@ introduces the discovery-artifact leak path the security review flagged.
 FR-43, FR-51 (layer two), FR-53 (posture check), FR-54, CON-09, CON-12
 **Conformance**: CC-007, CC-008, CC-009, CC-012, CC-021
 **Security controls owned**: SEC-001 (layer two), SEC-003, SEC-011 (verification)
+**Added by spec v1.4**: FR-75, FR-76, FR-77, FR-78; CC-024, CC-025, CC-026, CC-028
 
 **Independent test**: Preview against a real subscription without applying, apply, re-apply
 unchanged, then run `zeroops verify`. Separately, run the compiled-ARM role audit offline
@@ -357,6 +358,10 @@ read-only invariant silently.
     denies fails the build; the reconciled set is recorded as a hash per runtime version,
     and the declared-not-runtime-verified marker from T2.04 is cleared only for the runtime
     version actually reconciled. (NEG-C, FR-51, CC-021, SEC-001)
+15. `zeroops verify` proves each declared connector usable through a probe the agent executes; a connector that is provisioned but absent from the agent's listing fails as `connectorNotVisibleToAgent`. (FR-75, CC-024)
+16. A canary trigger is read back after creation and its run is read back after firing; an empty stored instruction or a run with no tool call fails, and an accepted-for-processing response is never a pass. (FR-76, CC-025)
+17. The failure registry carries `awaitingApproval`, `connectorNotVisibleToAgent`, `noToolUse` and `deliveryFailed`, and an on-behalf-of request in a read-only agent is classified as a permission gap. (FR-77, CC-028)
+18. A custom agent with an empty, missing or wider-than-parent capability list fails offline, and the runtime meaning of an empty list is recorded by the reconciliation gate. (FR-78, CC-026)
 
 ### Tasks
 
@@ -368,6 +373,10 @@ read-only invariant silently.
 - [ ] T5.06 `[human]` **(S4-11) `zeroops verify` post-deployment validation.** Per-check results; fails on any non-read role anywhere in the subscription; distinguishes not-yet-effective from not-granted; reports runtime execution limits against declared values. (FR-39, FR-43, FR-53, CC-009, CC-012)
 - [ ] T5.07 `[human]` **(S4-12) NEG-C — runtime capability reconciliation gate.** Enumerates the capability set advertised by the pinned runtime, fails closed on any unclassified capability, records the reconciled set as a per-version hash. (FR-51, FR-54, CC-021, SEC-001 layer two)
 - [ ] T5.08 `[copilot]` `[P]` **(S4-07) Expose the non-wizard deployment path.** Document and test deploying from the committed Infrastructure as Code inputs alone. (FR-21)
+- [ ] T5.09 `[human]` **(SA-01, NEW) Functional connector probe in `zeroops verify`.** Probe thread per declared connector, data plane audience token, classification as `connectorNotVisibleToAgent`. Depends on T5.06. (FR-75, CC-024)
+- [ ] T5.10 `[human]` **(SA-02, NEW) End-to-end canary with stored-instruction read-back.** Create, read back, fire, poll the run skipping the instruction message, assert sentinel and tool use within the measured Log Analytics propagation window, delete the canary. Depends on T5.09. (FR-76, CC-025)
+- [ ] T5.11 `[copilot]` `[P]` **(SA-03, NEW) Four failure classes.** `tools/zeroops/failure_modes.py`, each with citation, probable cause and recovery action; symptom to first check table handed to T11.01. (FR-77, CC-028)
+- [ ] T5.12 `[human]` **(SA-04, NEW) Custom agents with explicit non-empty capabilities.** Schema property, three negative cases, schema version bump; empty-list runtime behaviour measured within T5.07. (FR-78, CC-026)
 
 ---
 
@@ -429,6 +438,7 @@ subscription, which is why SEC-015 applies to the workflows themselves.
 **Satisfies**: FR-42, FR-54, FR-59, NFR-05, NFR-16, NFR-18
 **Conformance**: CC-023
 **Security controls owned**: SEC-002 (empirical, non-gating half)
+**Added by spec v1.4**: open decision on delivery of findings
 
 **Independent test**: Read the security model and confirm each of the five NFR-05 threats
 names a mitigation and a test, and that each named test is classified gating or measured.
@@ -456,6 +466,7 @@ measured rate as proof. That is the exact defect the security review named.
 6. Configuration reference, deployment guide and validation guide each exist, and every
    procedure step carries a copy-pasteable command or an explicit manual marker. (NFR-16,
    NFR-18)
+7. The delivery-of-findings decision is recorded in an ADR before any change to the `externalPublication` deny rule, and any resulting policy change is covered by an updated negative test. (`spec.md` open decisions)
 
 ### Tasks
 
@@ -463,6 +474,7 @@ measured rate as proof. That is the exact defect the security review named.
 - [ ] T7.02 `[copilot]` `[P]` **(S4-16) Configuration reference.** Every schema property documented with its owning concern per FR-24. (NFR-16, FR-24)
 - [ ] T7.03 `[human]` `[P]` **(S4-16) Deployment and validation guides.** Every step with a command or a manual marker. (NFR-16, NFR-18, FR-59)
 - [ ] T7.04 `[human]` **(S4-13) Versioned injection corpus, measured and non-gating.** Reported with corpus version and evidence; explicitly excluded from required checks. (NFR-05, CC-023, FR-42)
+- [ ] T7.05 `[human]` **(SA-10, NEW) ADR: delivery of findings to customer-owned channels.** Evaluates keeping the deny rule against splitting it into leaving the tenant, still denied, and draft delivery to an owned channel as an opt-in capability with an approval ledger entry beyond drafts. (FR-52)
 
 ---
 
@@ -474,6 +486,7 @@ measured rate as proof. That is the exact defect the security review named.
 **Satisfies**: FR-44, FR-45, FR-46, FR-47, FR-48, FR-49, FR-50, CON-07
 **Conformance**: CC-010, CC-011, SC-08
 **Security controls owned**: SEC-002 (evidence half), SEC-013 (audit half)
+**Added by spec v1.4**: FR-80, FR-81; CC-027
 
 **Independent test**: Execute one diagnostic run against a deployed agent, validate the
 emitted evidence manifest against its schema, and confirm every conclusion resolves or
@@ -505,6 +518,8 @@ is recorded as unobserved rather than estimated.
    tool policy. (FR-50)
 7. Shipped default queries and consumer extensions are separable, asserted by a check that
    a consumer extension produces no diff inside the declared core. (FR-50, SC-13)
+8. The shipped catalogue includes a workload-neutral change-correlation query that validates offline, carries an integrity hash and stays within the result-set limit. (FR-80)
+9. An observed conclusion citing only evidence collected before the execution window is rejected. (FR-81, CC-027)
 
 ### Tasks
 
@@ -512,6 +527,9 @@ is recorded as unobserved rather than estimated.
 - [ ] T8.02 `[copilot]` **(S5-03) Conclusion-to-evidence resolution as a schema invariant.** Per execution, not by sampling. (FR-47, SC-08)
 - [ ] T8.03 `[copilot]` `[P]` **(S5-04) Audit record plus emitted-artifact scanning.** No secret, no raw workload payload; corroborating scan reported separately from the structural guarantee. (FR-48, FR-49)
 - [ ] T8.04 `[human]` `[P]` **(S5-05) Query catalogue with integrity verification.** Shipped defaults separable from extensions; arbitrary construction denied by policy. (FR-50)
+- [ ] T8.05 `[copilot]` `[P]` **(SA-06, NEW) Change-correlation catalogue query.** Resource changes and control-plane writes within a time window, integrity hashed per T8.04. (FR-80)
+- [ ] T8.06 `[copilot]` **(SA-07, NEW) Evidence window invariant for observed conclusions.** Extends T8.02. (FR-81, CC-027)
+- [ ] T8.07 `[human]` **(SA-11, NEW) Verify runtime run-state and score exposure.** Records whether the runtime exposes approval backlog and evaluation scores; no design and no release gate until it does. (`spec.md` open decisions)
 
 ---
 
@@ -522,6 +540,7 @@ is recorded as unobserved rather than estimated.
 **Work items**: S3-11 (Slice 3), S5-01, S5-06
 **Satisfies**: FR-60, FR-61, FR-62, FR-64, NFR-20, NFR-26, CON-04, CON-05, CON-11
 **Conformance**: CC-013, CC-022, SC-01
+**Added by spec v1.4**: FR-79; open decision on incident routing
 
 **Independent test**: In one clone at a released version, onboard `examples/minimal/` and
 then the AKS reference workload, and inspect the resulting diff against
@@ -547,12 +566,15 @@ leaks a real identifier, which T9.02 guards with placeholders only.
 5. Adding a workload, a query, a connector and an extension are each demonstrated as purely
    additive operations in the reference workload example. (NFR-20)
 6. `extensions/README.md` ships the extension contract and no content. (SC-13)
+7. A skill whose guidance only names a topic is reported, and a skill stating when it applies, what to check, when it does not apply and which mistake to avoid passes. (FR-79)
 
 ### Tasks
 
 - [ ] T9.01 `[copilot]` **(S3-11, Slice 3) Zero-core-edit check.** Diffs an onboarding change against `contracts/core-paths.json`; fails and names the file on any core modification. Scheduled in Slice 3 because it gates this story's acceptance. (FR-60, SC-01, CC-013)
 - [ ] T9.02 `[human]` **(S5-01) `examples/reference-workload/` — AKS with placeholders only.** Added additively; produces no core diff. (FR-64, CON-04)
 - [ ] T9.03 `[copilot]` `[P]` **(S5-06) Extension guide and extension-point documentation.** Inputs, outputs, and the guarantees that survive a core upgrade; `extensions/README.md` ships the contract and no content. (FR-62, NFR-20)
+- [ ] T9.04 `[copilot]` `[P]` **(SA-05, NEW) Skill guidance check.** Offline, warning level, fixtures for vague and useful skills. (FR-79)
+- [ ] T9.05 `[human]` **(SA-09, NEW) ADR: incident routing contract.** Decides whether a workload extension routes incident classes to named custom agents in v1. Depends on T5.12. (Contract area 11)
 
 ---
 
@@ -608,6 +630,7 @@ S5-18 (new)
 **Satisfies**: FR-08, FR-09, FR-42, FR-65, FR-71, FR-72, FR-73, FR-74, NFR-04, NFR-16,
 NFR-17, NFR-18, NFR-19, SC-02, SC-03, SC-10, SC-12, SC-13, CON-11
 **Security controls owned**: SEC-010, SEC-006 (public-visibility precondition)
+**Added by spec v1.4**: FR-82
 
 **Independent test**: Hand the quickstart to someone who has never seen the repository and
 have them reach a first useful read-only result in one working session against a clean
@@ -631,7 +654,7 @@ executing it; a self-assessment is not evidence (FR-42).
 4. The deviations register records every deviation from the reference implementation with
    its rationale, including the deprecated signed scope-contract workflow that was not
    carried forward. (FR-73, SEC-010)
-5. The traceability matrix resolves every FR, NFR, SC and CC identifier in `spec.md` v1.3
+5. The traceability matrix resolves every FR, NFR, SC and CC identifier in `spec.md` v1.4
    to at least one ADR, task, test or artifact, or records it as deferred with a reason. A
    check fails on any unresolved identifier. (FR-71, FR-72, SC-10)
 6. The quickstart states the counted number of files edited and the counted number of
@@ -648,6 +671,7 @@ executing it; a self-assessment is not evidence (FR-42).
 10. Each of the eighteen `prd.md` *Required Documentation* items resolves to an artifact or
     is explicitly deferred with a reason. (NFR-16)
 11. `docs/architecture/overview.md` renders at least one Mermaid diagram. (NFR-17)
+12. The quickstart carries a first-scenario procedure that ends with a reviewed consumer skill under the extension paths, and the SC-12 run records it. (FR-82)
 
 ### Tasks
 
@@ -661,6 +685,7 @@ executing it; a self-assessment is not evidence (FR-42).
 - [ ] T11.08 `[copilot]` `[P]` **(S5-16, NEW) Required-documentation completeness check.** Asserts each of the eighteen `prd.md` items resolves to an artifact or a recorded deferral, and that the architecture overview renders a Mermaid diagram. (NFR-16, NFR-17, NFR-19) **New work item — see Coverage Gaps.**
 - [ ] T11.09 `[human]` **(S5-17, NEW) Customer onboarding checklist, quick wins first.** Phase one installs the agent, adds the sources and answers the team integration before anything is asked of the customer, then uses the Level 100 prompts of the external playbook, linked by pinned commit and never copied because that repository carries no licence. Phase two maps the customer's existing documents onto the recipe artifacts they can populate. (CON-11, SC-12, SC-13) **New work item — see Coverage Gaps.**
 - [ ] T11.10 `[human]` `[P]` **(S5-18, NEW) Review the practitioner community thread against committed artifacts.** Examines ADR-0001, the minimum SRE agent contract, `core/policy/`, the known limitations, the deviations register and the environment binding against what practitioners report about the runtime, recording confirmed, contradicted or no-evidence for each. Every contradiction produces a concrete follow-up; no author, customer, tenant or resource identifier reaches a committed artifact. (FR-73, FR-74, SEC-010) **New work item — see Coverage Gaps.**
+- [ ] T11.11 `[human]` **(SA-08, NEW) First-scenario quickstart.** Interactive session, distilled skill, human review, commit under the extension paths; agent-drafted text is untrusted until reviewed. Depends on T9.04. (FR-82, SC-12)
 
 ---
 
@@ -738,9 +763,28 @@ explicitly scoped rather than assumed:
 - **FR-57** — contract-level separation of diagnostic output from proposed mutation. Implied
   by S3-04's schema set but never stated. Made explicit in T1.08's acceptance.
 
+### External guidance work items (spec v1.4)
+
+Eleven work items come from assessing the external guidance in `spec.md` v1.4 against this
+repository. They carry `SA-xx` identifiers because no `plan.md` work item exists for them.
+
+| Work item | Task | Story | Requirement or decision |
+|---|---|---|---|
+| SA-01 | T5.09 | US-5 | FR-75, CC-024 |
+| SA-02 | T5.10 | US-5 | FR-76, CC-025 |
+| SA-03 | T5.11 | US-5 | FR-77, CC-028 |
+| SA-04 | T5.12 | US-5 | FR-78, CC-026 |
+| SA-05 | T9.04 | US-9 | FR-79 |
+| SA-06 | T8.05 | US-8 | FR-80 |
+| SA-07 | T8.06 | US-8 | FR-81, CC-027 |
+| SA-08 | T11.11 | US-11 | FR-82 |
+| SA-09 | T9.05 | US-9 | Open decision, incident routing |
+| SA-10 | T7.05 | US-7 | Open decision, delivery of findings |
+| SA-11 | T8.07 | US-8 | Open decision, approval backlog signals |
+
 ### Requirements deliberately not decomposed
 
-- **SC-11** — carries `[DEFERRED]` in `spec.md` v1.3; no baseline exists. No task.
+- **SC-11** — carries `[DEFERRED]` in `spec.md` v1.4; no baseline exists. No task.
 - **FR-58** — deferred capability; the contract half is covered by T1.08, and no execution
   path is created, which is what T2.02 asserts.
 - **CON-12** — creates no work. Its only artifact is the negative assertion in T5.02 that no
@@ -773,8 +817,8 @@ Stated because they resolved ambiguity without a user decision.
 ## References
 
 - [plan.md](plan.md) — Slices 3, 4, 5 work item tables
-- [spec.md](spec.md) v1.3 — FR-01 to FR-74, NFR-01 to NFR-26, CON-01 to CON-12,
-  SC-01 to SC-13, CC-001 to CC-023, CC-C01, Invariants
+- [spec.md](spec.md) v1.4 — FR-01 to FR-82, NFR-01 to NFR-26, CON-01 to CON-12,
+  SC-01 to SC-13, CC-001 to CC-028, CC-C01, Invariants
 - [security-review-architecture.md](security-review-architecture.md) — SEC-001 to SEC-017,
   NEG-A to NEG-K
 - [data-model.md](data-model.md), [contracts/schema-register.md](contracts/schema-register.md)
