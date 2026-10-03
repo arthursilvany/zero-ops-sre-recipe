@@ -125,3 +125,16 @@ and PowerShell 7.
 | API ingress target port | Restored to 8080 |
 | Agent threads | Retained in the agent as investigation history; the stalled fault thread holds an unapproved authorization request and should stay unapproved |
 | Laboratory resources | Unchanged apart from the reverted ingress setting |
+
+## Owner decision addendum, 2026-10-03
+
+This addendum records decisions made after the validation above. It does not change the
+original observations or treat them as new measurements.
+
+| Decision | Owner disposition |
+|---|---|
+| Log Analytics connector | The owner reports that the connector was added to the SRE Agent. This is owner-reported configuration, not verified functional evidence. The agent must execute a successful query before connector usability is confirmed. |
+| Agent identity permission | The owner accepts retaining the current elevated permission in this lab until project testing is complete. The observed assignment remains recorded above as Monitoring Contributor; no role change was measured or is implied by this decision. This temporary lab exception does not authorize an RBAC change. |
+| Recipe security invariant | The recipe remains read-only. NEG-A and the read-only role allow-list remain unchanged. This exception is not evidence of least-privilege compliance. |
+| Handoff schema | The owner accepts handoff schema version 1.1.0. |
+| ADR-0007 | The owner confirmed reviewed and approved. Repository guidance still requires review by at least one other team member before the ADR can be marked Accepted. |
