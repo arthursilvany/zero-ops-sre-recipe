@@ -36,6 +36,7 @@ from zeroops import obligations
 from zeroops import policy
 from zeroops import references
 from zeroops import role_audit
+from zeroops import skill_lint
 
 # JSON Schema treats "format" as an annotation by default, so a malformed
 # timestamp would pass structural validation. The semantic comparison below
@@ -1123,6 +1124,17 @@ def main(argv=None):
         help="Check the core path declaration against the repository (FR-04, FR-61).",
     )
 
+    skill_lint_parser = subparsers.add_parser(
+        "lint-skills",
+        help="Warn about missing guidance sections in extension skills, offline.",
+    )
+    skill_lint_parser.add_argument(
+        "target",
+        nargs="?",
+        default=skill_lint.EXTENSIONS_DIR,
+        help="An extensions directory. Defaults to the repository's extensions/.",
+    )
+
     test_parser = subparsers.add_parser(
         "test",
         help="Run this repository's offline suite with no credentials and no "
@@ -1194,6 +1206,9 @@ def main(argv=None):
 
     if args.command == "check-core":
         return _run_check_core()
+
+    if args.command == "lint-skills":
+        return skill_lint.run(args.target)
 
     if args.command == "audit-roles":
         return role_audit.run(args.target, args.allow_list)

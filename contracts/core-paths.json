@@ -82,9 +82,8 @@
       },
       {
         "path": "extensions/README.md",
-        "status": "planned",
-        "purpose": "The extension contract. Ships a contract and no content (CON-11).",
-        "materialisedBy": "T9.03"
+        "status": "present",
+        "purpose": "The extension contract. Ships a contract and no content (CON-11)."
       }
     ],
     "binding": [

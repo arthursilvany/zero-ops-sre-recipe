@@ -110,7 +110,7 @@ customer; anything a workload needs that the contracts cannot express is a gap t
 | Path | Holds | Who edits it |
 |---|---|---|
 | `examples/` | Copyable starting configurations, placeholders only | You, in your copy |
-| `extensions/` | The seam workloads plug into; planned, arrives with task T9.03 | You, through the extension contract |
+| `extensions/` | Consumer skill extensions and their quality guidance | You, following [`extensions/README.md`](extensions/README.md) |
 | `contracts/` | JSON Schema contracts, vocabulary, core declaration | Framework only |
 | `core/` | Runtime-agnostic policy and evidence model | Framework only |
 | `wizard/` | Read-only discovery queries and eligibility rules | Framework only |
