@@ -38,7 +38,7 @@ PLAN = os.path.join(
 # parser, so that adding one to the parser without deciding to document it
 # fails. A list derived from the thing it checks agrees with it by
 # construction and checks nothing.
-EXPECTED_COMMANDS = {"validate", "check-core", "test", "hash", "audit-roles"}
+EXPECTED_COMMANDS = {"validate", "check-core", "test", "hash", "audit-roles", "lint-skills"}
 
 # The credential-shaped environment the local test run removes, written out
 # here rather than read from the registry it checks. A list derived from the

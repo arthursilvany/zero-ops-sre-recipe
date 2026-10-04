@@ -77,6 +77,27 @@ readiness gate.
 inside the document: a document that names its own schema can name a laxer one, and that
 would be the cheapest way to pass.
 
+## Lint extension skills
+
+```powershell
+.\bin\zeroops.ps1 lint-skills
+.\bin\zeroops.ps1 lint-skills path\to\extensions
+```
+
+The command checks Markdown skills under `extensions/`; a custom target must also be a
+directory named `extensions`. It skips `README.md` files, scans nested directories, and
+requires non-empty guidance under headings for when to use the skill, what to check, when
+it does not apply and which mistake to avoid. The check is offline and requires no
+credentials.
+
+Missing or empty guidance produces warnings and the command still returns exit code `0`.
+This is intentional in v1: the check is a structural heuristic, not a judgment of the
+advice's semantic quality. An unreadable or invalid target is a command error and returns
+exit code `2`.
+
+See [`extensions/README.md`](../extensions/README.md) for the section headings and
+accepted alternatives.
+
 ## Run the offline suite
 
 ```powershell
