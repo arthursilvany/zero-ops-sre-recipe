@@ -278,12 +278,27 @@ state no class can reach would be a value the contract defines and nothing can e
 | `frameworkVersionIncompatible` | `failed` | No | Failure Modes |
 | `executionLimitReached` | `incomplete` | No | Edge Cases |
 | `accessNotGranted` | `accessDenied` | No | Failure Modes, derived distinction |
+| `awaitingApproval` | `incomplete` | No | Functional Requirements, FR-77 |
+| `connectorNotVisibleToAgent` | `failed` | No | Functional Requirements, FR-77 |
+| `noToolUse` | `failed` | No | Functional Requirements, FR-77 |
+| `deliveryFailed` | `incomplete` | Yes | Functional Requirements, FR-77 |
 
 The consistency-model bullet maps to no state. It records which operations are eventually
 consistent and states that contract validation is immediate, which is a property of the
 system rather than an outcome a run can reach. It is listed in the registry with that reason
 rather than omitted, because a bullet absent from the registry and a bullet deliberately
 excluded from it are otherwise the same thing.
+
+The four FR-77 classes were each observed against a live runtime. Because an operator who
+meets one needs the first thing to check, each also records a probable cause and a recovery
+action in the registry, as FR-38 requires for deployment errors.
+
+| Failure class | Probable cause | Recovery action |
+|---|---|---|
+| `awaitingApproval` | The agent identity lacks a read role on the queried scope | Grant the missing read role through the deployment, wait for propagation, start a new execution |
+| `connectorNotVisibleToAgent` | The connector exists but is not in the agent's own connector listing | List connectors through the agent, compare with declared sources, recreate through the supported path |
+| `noToolUse` | The stored instruction is empty or names no target, or no tool reaches the scope | Read back the stored instruction and confirm connector visibility before firing again |
+| `deliveryFailed` | The destination rejected or did not acknowledge the delivery | Check the destination and the externalPublication rule, then redeliver the recorded findings |
 
 Two distinctions carry weight. `incomplete` is not a weaker `failed`: every reason mapping to
 it left partial work that remains valid, and calling a partly applied deployment failed would
@@ -293,7 +308,7 @@ from permission that does not exist; collapsing them turns a deployment that is 
 into one that looks misconfigured.
 
 The mapping is enforced by `contracts/schemas/handoff-record.schema.json` rather than stated
-here alone. A record whose `executionState` is `incomplete` admits only the four reasons that
+here alone. A record whose `executionState` is `incomplete` admits only the six reasons that
 produce it, a `completed` record cannot carry a termination reason at all, and only a
 `completed` record may carry a `completedAt`. `tools/zeroops/failure_modes.py` holds the
 registry, and a test parses the specification so that a bullet added there and never

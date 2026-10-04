@@ -198,8 +198,8 @@
     },
     {
       "schema": "handoff-record",
-      "version": "1.0.0",
-      "contentDigest": "e72d485a1bda03bb7de20f5fb077ea0adcd7c0bf973091f14bea5c371d3ac1cb",
+      "version": "1.1.0",
+      "contentDigest": "e514981e4e62ed3188e792f11f00e7229c2da9c954beda0ae1bb628986d0b86e",
       "history": [
         {
           "version": "1.0.0",
@@ -207,6 +207,18 @@
           "breakingChanges": [],
           "migration": "None required. This is the initial published version, so no consumer document predates it and nothing needs rewriting.",
           "rationale": "Initial publication. Recorded as a version record rather than omitted, so the history is never empty and a reader never has to infer that the first entry was the beginning."
+        },
+        {
+          "version": "1.1.0",
+          "date": "2026-10-03",
+          "breakingChanges": [
+            {
+              "change": "A handoff record must now declare schemaVersion 1.1.0. Nothing stopped being accepted, but the version is pinned with const, so a record still declaring 1.0.0 is refused with a version mismatch.",
+              "affects": "/schemaVersion"
+            }
+          ],
+          "migration": "Change schemaVersion from 1.0.0 to 1.1.0. Nothing else in an existing record needs to change.",
+          "rationale": "FR-77 adds four termination reasons observed against a live runtime: awaitingApproval and deliveryFailed produce incomplete, connectorNotVisibleToAgent and noToolUse produce failed. Minor because the change only widens the closed set and its partitions; every record valid under 1.0.0 apart from its version string remains valid."
         }
       ]
     },

@@ -212,7 +212,7 @@ FIXTURES = {
         "reportShaping": {"sections": ["summary", "findings"]},
     },
     "handoff-record": {
-        "schemaVersion": "1.0.0",
+        "schemaVersion": "1.1.0",
         "executionId": "<EXECUTION_ID>",
         "idempotencyKey": "<IDEMPOTENCY_KEY>",
         "turn": 1,

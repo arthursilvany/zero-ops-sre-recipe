@@ -375,7 +375,7 @@ read-only invariant silently.
 - [ ] T5.08 `[copilot]` `[P]` **(S4-07) Expose the non-wizard deployment path.** Document and test deploying from the committed Infrastructure as Code inputs alone. (FR-21)
 - [ ] T5.09 `[human]` **(SA-01, NEW) Functional connector probe in `zeroops verify`.** Probe thread per declared connector, data plane audience token, classification as `connectorNotVisibleToAgent`. Depends on T5.06. (FR-75, CC-024)
 - [ ] T5.10 `[human]` **(SA-02, NEW) End-to-end canary with stored-instruction read-back.** Create, read back, fire, poll the run skipping the instruction message, assert sentinel and tool use within the measured Log Analytics propagation window, delete the canary. Depends on T5.09. (FR-76, CC-025)
-- [ ] T5.11 `[copilot]` `[P]` **(SA-03, NEW) Four failure classes.** `tools/zeroops/failure_modes.py`, each with citation, probable cause and recovery action; symptom to first check table handed to T11.01. (FR-77, CC-028)
+- [x] T5.11 `[copilot]` `[P]` **(SA-03, NEW) Four failure classes.** `tools/zeroops/failure_modes.py`, each with citation, probable cause and recovery action; symptom to first check table handed to T11.01. (FR-77, CC-028)
 - [ ] T5.12 `[human]` **(SA-04, NEW) Custom agents with explicit non-empty capabilities.** Schema property, three negative cases, schema version bump; empty-list runtime behaviour measured within T5.07. (FR-78, CC-026)
 
 ---

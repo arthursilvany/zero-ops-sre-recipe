@@ -639,13 +639,17 @@
         "concurrentScopeConflict",
         "frameworkVersionIncompatible",
         "executionLimitReached",
-        "accessNotGranted"
+        "accessNotGranted",
+        "awaitingApproval",
+        "connectorNotVisibleToAgent",
+        "noToolUse",
+        "deliveryFailed"
       ],
       "appliesTo": [
         "handoff-record#/$defs/terminationReason"
       ],
       "origin": "frameworkOriginated",
-      "note": "One member per failure class the specification names, so the FR-07 mapping from class to execution state has a closed domain to map from. The reference material carried no execution-level failure taxonomy at all; it recorded only per-source outcomes, which survive here as unobservedReason. Two members preserve a distinction the specification requires and nothing else expresses: roleAssignmentNotYetEffective is a grant still propagating, accessNotGranted is a grant that does not exist."
+      "note": "One member per failure class the specification names, so the FR-07 mapping from class to execution state has a closed domain to map from. The reference material carried no execution-level failure taxonomy at all; it recorded only per-source outcomes, which survive here as unobservedReason. Two members preserve a distinction the specification requires and nothing else expresses: roleAssignmentNotYetEffective is a grant still propagating, accessNotGranted is a grant that does not exist. Four members come from FR-77 and were each observed against a live runtime: awaitingApproval, connectorNotVisibleToAgent, noToolUse and deliveryFailed."
     },
     {
       "name": "incompleteTerminationReason",
@@ -653,7 +657,9 @@
         "deploymentPartiallyApplied",
         "roleAssignmentNotYetEffective",
         "dataSourceUnreachable",
-        "executionLimitReached"
+        "executionLimitReached",
+        "awaitingApproval",
+        "deliveryFailed"
       ],
       "appliesTo": [
         "handoff-record#/$defs/incompleteTerminationReason"
@@ -666,7 +672,9 @@
       "values": [
         "discoveryProviderUnavailable",
         "concurrentScopeConflict",
-        "frameworkVersionIncompatible"
+        "frameworkVersionIncompatible",
+        "connectorNotVisibleToAgent",
+        "noToolUse"
       ],
       "appliesTo": [
         "handoff-record#/$defs/failedTerminationReason"

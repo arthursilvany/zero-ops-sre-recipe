@@ -31,7 +31,27 @@ import re
 
 FailureClass = collections.namedtuple(
     "FailureClass",
-    ["name", "source", "citation", "execution_state", "retryable", "rationale"],
+    [
+        "name",
+        "source",
+        "citation",
+        "execution_state",
+        "retryable",
+        "rationale",
+        "probable_cause",
+        "recovery_action",
+    ],
+    defaults=(None, None),
+)
+
+# The classes FR-77 adds. Each was observed against a live runtime, which is why each
+# also names a probable cause and a recovery action: an operator who meets one of them
+# needs the first thing to check, not only the state it produced.
+FR77_CLASSES = (
+    "awaitingApproval",
+    "connectorNotVisibleToAgent",
+    "noToolUse",
+    "deliveryFailed",
 )
 
 # The lead-in of each bullet in the specification's Failure Modes section, verbatim.
@@ -158,6 +178,99 @@ FAILURE_CLASSES = [
             "the run, which is why accessDenied is a first-class state and not a kind "
             "of failure. Not retryable: a grant that does not exist does not appear by "
             "asking again."
+        ),
+    ),
+    FailureClass(
+        name="awaitingApproval",
+        source="An execution waits on an approval a read-only agent should never need",
+        citation="Functional Requirements, FR-77",
+        execution_state="incomplete",
+        retryable=False,
+        rationale=(
+            "A read-only agent has no write to approve, so a run that stops on an "
+            "approval request has met a permission gap that the runtime surfaced as a "
+            "request to act on someone's behalf. Treating it as a human decision would "
+            "leave it waiting with nobody able to answer, which the lab observed as an "
+            "unbounded wait. Incomplete because the evidence read before the request "
+            "stands. Not retryable: the same missing role produces the same request."
+        ),
+        probable_cause=(
+            "The agent identity lacks a read role on the scope it queried, so the "
+            "runtime asked to use the caller's identity instead."
+        ),
+        recovery_action=(
+            "Grant the missing read role named in the request to the agent identity "
+            "through the deployment, wait for propagation, then start a new execution."
+        ),
+    ),
+    FailureClass(
+        name="connectorNotVisibleToAgent",
+        source="A provisioned data-source connector the agent cannot list",
+        citation="Functional Requirements, FR-77",
+        execution_state="failed",
+        retryable=False,
+        rationale=(
+            "Distinct from dataSourceUnreachable: the source itself answers, but the "
+            "agent holds no binding to it, so every conclusion would be drawn without "
+            "that source by construction rather than by accident. A provisioning state "
+            "reported as succeeded is not evidence of use (FR-75). Not retryable, "
+            "because the lab connector never appeared however long the probe waited, "
+            "and recreating it is a configuration change rather than a retry."
+        ),
+        probable_cause=(
+            "The connector resource exists but is not registered with the agent's own "
+            "connector listing, or it was created with an identity the agent does not "
+            "use."
+        ),
+        recovery_action=(
+            "List the agent's connectors through the agent itself, compare with the "
+            "declared data sources, and recreate the missing connector through the "
+            "supported configuration path before running verification again."
+        ),
+    ),
+    FailureClass(
+        name="noToolUse",
+        source="An execution that concluded without calling any tool",
+        citation="Functional Requirements, FR-77",
+        execution_state="failed",
+        retryable=False,
+        rationale=(
+            "A conclusion reached without a single tool call observed nothing, so any "
+            "finding it states is unsupported by evidence collected in the execution "
+            "window (FR-81). The lab reached this state when a trigger stored an empty "
+            "instruction and still answered accepted. Not retryable: repeating the "
+            "same stored instruction reproduces the same empty run."
+        ),
+        probable_cause=(
+            "The stored instruction is empty or does not name a target, or the agent "
+            "has no tool able to reach the declared scope."
+        ),
+        recovery_action=(
+            "Read back the stored instruction and confirm it is the expected text, then "
+            "confirm the declared connectors are visible to the agent before firing a "
+            "new execution."
+        ),
+    ),
+    FailureClass(
+        name="deliveryFailed",
+        source="Findings produced but not delivered to their declared destination",
+        citation="Functional Requirements, FR-77",
+        execution_state="incomplete",
+        retryable=True,
+        rationale=(
+            "The investigation finished and its evidence is valid; only the hand-off of "
+            "the result failed. Calling the run failed would discard evidence that is "
+            "already correct. Retryable because delivery depends on a destination that "
+            "can recover, and redelivering the same findings does not repeat the "
+            "investigation or its reads."
+        ),
+        probable_cause=(
+            "The destination rejected or did not acknowledge the delivery, or the "
+            "delivery path is denied by the tool policy."
+        ),
+        recovery_action=(
+            "Check the destination and the externalPublication rule in the tool policy, "
+            "then redeliver the recorded findings without starting a new investigation."
         ),
     ),
     FailureClass(

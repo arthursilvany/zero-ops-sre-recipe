@@ -148,6 +148,10 @@ and no architectural choice without an ADR.
 
 The tracked source of truth is the issue list of this repository.
 
+The assumptions behind US-5 were exercised against a live agent and a laboratory workload
+before the automation exists. The scenarios, telemetry and findings are recorded in
+[docs/validation/lab-validation-2026-10-03.md](docs/validation/lab-validation-2026-10-03.md).
+
 ## Security
 
 Report vulnerabilities as described in [SECURITY.md](SECURITY.md). Never open a public

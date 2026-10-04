@@ -163,8 +163,10 @@ Edit the pinned modules to remove the grants.
 ## Decision
 
 **Option 3**, chosen by the project owner on 2026-10-02, with Option 4 pursued in
-parallel so that a future pin bump can retire the local role assignments. The status stays
-Proposed until another team member reviews this record.
+parallel so that a future pin bump can retire the local role assignments. On 2026-10-03,
+the owner confirmed reviewed and approved. The status remains Proposed until at least one
+other team member reviews this record, as required by repository ADR guidance. The owner's
+confirmation does not substitute for that independent review.
 
 Option 3 is the only option that meets the first and third priorities, which are the
 product claim and its evidence. It keeps the second priority except for a narrow
