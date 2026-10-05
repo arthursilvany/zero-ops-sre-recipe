@@ -216,6 +216,7 @@ Rationale for the choices that are not obvious:
 
 - `prd.md`
 - [Minimum SRE Agent Contract](minimum-sre-agent-contract.md)
+- [Framework Configuration Reference](framework-configuration-reference.md)
 - [Source analysis and pattern inventory](source-analysis.md)
 - `docs/features/sre-agent-recipe-framework/spec.md`
 - `docs/envisioning/README.md`
