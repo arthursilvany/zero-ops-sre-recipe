@@ -471,7 +471,7 @@ measured rate as proof. That is the exact defect the security review named.
 ### Tasks
 
 - [ ] T7.01 `[human]` **(S4-16) Security model document.** Five threats, mitigation, named test, gating or measured classification; RBAC as authority; the FR-54 runtime-default warning. (NFR-05, FR-54, SEC-001)
-- [ ] T7.02 `[copilot]` `[P]` **(S4-16) Configuration reference.** Every schema property documented with its owning concern per FR-24. (NFR-16, FR-24)
+- [x] T7.02 `[copilot]` `[P]` **(S4-16) Configuration reference.** Every property in `framework-config.schema.json` is documented with its owning concern per FR-24 and checked against schema-derived property paths. (NFR-16, FR-24)
 - [ ] T7.03 `[human]` `[P]` **(S4-16) Deployment and validation guides.** Every step with a command or a manual marker. (NFR-16, NFR-18, FR-59)
 - [ ] T7.04 `[human]` **(S4-13) Versioned injection corpus, measured and non-gating.** Reported with corpus version and evidence; explicitly excluded from required checks. (NFR-05, CC-023, FR-42)
 - [ ] T7.05 `[human]` **(SA-10, NEW) ADR: delivery of findings to customer-owned channels.** Evaluates keeping the deny rule against splitting it into leaving the tenant, still denied, and draft delivery to an owned channel as an opt-in capability with an approval ledger entry beyond drafts. (FR-52)
