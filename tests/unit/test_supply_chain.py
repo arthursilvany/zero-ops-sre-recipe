@@ -6,10 +6,17 @@ been observed to pass is not known to be a control, so roughly half of this
 module feeds the verifier deliberately broken input and asserts it objects.
 """
 
+import base64
+import csv
+import hashlib
+import io
 import json
 import os
 import re
+import subprocess
+import sys
 import unittest
+import zipfile
 
 from supply_chain import generate_lock
 
@@ -220,6 +227,79 @@ class TheVerifierCanReject(unittest.TestCase):
         self.assert_rejected(
             re.sub(r"--hash=sha256:", "--hash=md5:", self.text, count=1), "malformed"
         )
+
+
+class PipRejectsAnArtifactWhoseDigestDoesNotMatch(unittest.TestCase):
+    def test_hash_mismatch_fails_the_same_pip_controls_used_in_ci(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            wheelhouse = os.path.join(tmpdir, "wheelhouse")
+            target = os.path.join(tmpdir, "target")
+            os.makedirs(wheelhouse)
+            os.makedirs(target)
+            wheel_path = os.path.join(
+                wheelhouse, "tiny_dependency-1.0-py3-none-any.whl"
+            )
+            members = {
+                "tiny_dependency.py": b"VALUE = 1\n",
+                "tiny_dependency-1.0.dist-info/METADATA": (
+                    b"Metadata-Version: 2.1\nName: tiny-dependency\nVersion: 1.0\n"
+                ),
+                "tiny_dependency-1.0.dist-info/WHEEL": (
+                    b"Wheel-Version: 1.0\nGenerator: unittest\n"
+                    b"Root-Is-Purelib: true\nTag: py3-none-any\n"
+                ),
+            }
+            record_path = "tiny_dependency-1.0.dist-info/RECORD"
+            rows = []
+            with zipfile.ZipFile(wheel_path, "w") as wheel:
+                for member, content in members.items():
+                    wheel.writestr(member, content)
+                    digest = base64.urlsafe_b64encode(
+                        hashlib.sha256(content).digest()
+                    ).rstrip(b"=").decode("ascii")
+                    rows.append([member, "sha256=" + digest, str(len(content))])
+                rows.append([record_path, "", ""])
+                record = io.StringIO(newline="")
+                csv.writer(record, lineterminator="\n").writerows(rows)
+                wheel.writestr(record_path, record.getvalue())
+
+            requirements = os.path.join(tmpdir, "requirements.txt")
+            with open(requirements, "w", encoding="utf-8", newline="\n") as handle:
+                handle.write(
+                    "tiny-dependency==1.0 \\\n"
+                    "    --hash=sha256:%s\n" % ("0" * 64)
+                )
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "pip",
+                    "install",
+                    "--disable-pip-version-check",
+                    "--no-index",
+                    "--find-links",
+                    wheelhouse,
+                    "--ignore-installed",
+                    "--require-hashes",
+                    "--only-binary=:all:",
+                    "--target",
+                    target,
+                    "-r",
+                    requirements,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=60,
+                env=dict(os.environ, PIP_DISABLE_PIP_VERSION_CHECK="1"),
+            )
+
+        output = (result.stdout + result.stderr).lower()
+        self.assertNotEqual(0, result.returncode, output)
+        self.assertIn("hash", output)
+        self.assertIn("requirements file", output)
 
 
 class TheGeneratorRefusesToFallBack(unittest.TestCase):

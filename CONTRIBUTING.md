@@ -138,6 +138,13 @@ installed. The `bin/` shims put `tools/` on `PYTHONPATH`, so the only third-part
 entering your workstation is the reviewed closure in
 [`tools/supply-chain.json`](tools/supply-chain.json).
 
+The runtime dependency audit checks the lock and queries OSV for every reviewed direct
+and transitive package. CI blocks pull requests on a known advisory or when the lock,
+network or OSV response cannot be verified. The same check runs weekly against `main`.
+Run it locally with `PYTHONPATH=tools python tools/supply_chain/audit_vulnerabilities.py`;
+it requires network access to OSV. The deterministic lock checks and test suite remain
+offline.
+
 `validate` accepts a single artifact or a directory. A directory is treated as a
 configuration set, so every recognised artifact inside it is checked, not only the
 framework configuration. The artifact kind is taken from the filename before the first
