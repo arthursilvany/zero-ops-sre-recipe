@@ -572,7 +572,7 @@ leaks a real identifier, which T9.02 guards with placeholders only.
 
 - [ ] T9.01 `[copilot]` **(S3-11, Slice 3) Zero-core-edit check.** Diffs an onboarding change against `contracts/core-paths.json`; fails and names the file on any core modification. Scheduled in Slice 3 because it gates this story's acceptance. (FR-60, SC-01, CC-013)
 - [ ] T9.02 `[human]` **(S5-01) `examples/reference-workload/` — AKS with placeholders only.** Added additively; produces no core diff. (FR-64, CON-04)
-- [ ] T9.03 `[copilot]` `[P]` **(S5-06) Extension guide and extension-point documentation.** Inputs, outputs, and the guarantees that survive a core upgrade; `extensions/README.md` ships the contract and no content. (FR-62, NFR-20)
+- [X] T9.03 `[copilot]` `[P]` **(S5-06) Extension guide and extension-point documentation.** Inputs, outputs, and the guarantees that survive a core upgrade; `extensions/README.md` ships the contract and no content. (FR-62, NFR-20)
 - [X] T9.04 `[copilot]` `[P]` **(SA-05, NEW) Skill guidance check.** Offline, warning level, fixtures for vague and useful skills. (FR-79)
 - [ ] T9.05 `[human]` **(SA-09, NEW) ADR: incident routing contract.** Decides whether a workload extension routes incident classes to named custom agents in v1. Depends on T5.12. (Contract area 11)
 
