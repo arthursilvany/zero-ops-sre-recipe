@@ -423,7 +423,7 @@ subscription, which is why SEC-015 applies to the workflows themselves.
 ### Tasks
 
 - [ ] T6.01 `[human]` **(S4-14) CI quality gate workflow.** Markdown lint, link check, example validation, Bicep build and lint, static Infrastructure as Code analysis, unit tests, negative gate. (NFR-06, NFR-08 to NFR-12)
-- [ ] T6.02 `[copilot]` `[P]` **(S4-14) Documented-command consistency check.** Parses documented commands and asserts each exists. (NFR-13)
+- [x] T6.02 `[copilot]` `[P]` **(S4-14) Documented-command consistency check.** Parses documented commands and asserts each exists. (NFR-13)
 - [ ] T6.03 `[copilot]` `[P]` **(S4-14) Dependency drift and vulnerability gate.** Hash mismatch fails; vulnerability alerting on the runtime dependency set. (SEC-005)
 - [ ] T6.04 `[human]` **(S4-15) CI supply-chain hardening.** Digest-pinned actions with an enforcement check, least-privilege `permissions:` on every workflow with an enforcement check, untrusted-ref trigger check, federated credentials with no long-lived secret. (SEC-015, NFR-14)
 - [ ] T6.05 `[human]` **(S4-17, NEW) SC-13 salted-digest sanitization gate.** Implements the decision from T3.06: digests committed, plaintext and salt supplied at run time, corroborated by FR-63 and CC-022 structural checks and by NFR-03 review. (SC-13, NFR-03, SEC-014) **New work item — see Coverage Gaps.**

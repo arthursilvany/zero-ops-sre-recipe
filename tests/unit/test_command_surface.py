@@ -90,6 +90,44 @@ def _subparsers_action():
     return holder["action"]
 
 
+DOCUMENTED_COMMAND_BLOCK = re.compile(
+    r"```(?:powershell|bash)\s*\r?\n(.*?)```", re.DOTALL
+)
+DOCUMENTED_ZEROOPS_INVOCATION = re.compile(
+    r"^\s*(?:\.[\\/]+bin[\\/]+zeroops(?:\.ps1)?)[ \t]+(?P<command>[^\s`]+)",
+    re.MULTILINE,
+)
+
+
+def documented_command_names(markdown):
+    """Read concrete invocations from the current-command documentation only."""
+    names = set()
+    for block in DOCUMENTED_COMMAND_BLOCK.findall(markdown):
+        for match in DOCUMENTED_ZEROOPS_INVOCATION.finditer(block):
+            name = match.group("command")
+            if not name.startswith(("<", "[")) and not name.startswith("--"):
+                names.add(name)
+    return names
+
+
+def command_consistency_errors(markdown, registered_commands, document_path):
+    documented = documented_command_names(markdown)
+    if not documented:
+        return ["%s: no supported zeroops command invocations found" % document_path]
+
+    errors = [
+        "%s: documented command '%s' is not registered"
+        % (document_path, command)
+        for command in sorted(documented - registered_commands)
+    ]
+    errors.extend(
+        "%s: registered command '%s' is not documented"
+        % (document_path, command)
+        for command in sorted(registered_commands - documented)
+    )
+    return errors
+
+
 def parser_flags():
     """Every optional flag each command offers, as {command: {flag}}.
 
@@ -106,6 +144,60 @@ def parser_flags():
                     flags.add(option)
         out[name] = flags
     return out
+
+
+class DocumentedCommandsMatchTheParser(unittest.TestCase):
+    """NFR-13: current copy-pasteable commands must match the argparse surface.
+
+    Only docs/commands.md is read. Planned commands in plan.md are not a
+    statement that the CLI supports them yet.
+    """
+
+    def test_documented_commands_match_the_registered_parser(self):
+        document = read(COMMANDS_DOC)
+        errors = command_consistency_errors(
+            document, parser_commands(), "docs/commands.md"
+        )
+        self.assertEqual([], errors)
+
+    def test_an_unregistered_documented_command_names_the_document_and_command(self):
+        document = "```powershell\n.\\bin\\zeroops.ps1 validate\n.\\bin\\zeroops.ps1 future-command\n```\n"
+        errors = command_consistency_errors(
+            document, {"validate"}, "docs/commands.md"
+        )
+        self.assertEqual(
+            ["docs/commands.md: documented command 'future-command' is not registered"],
+            errors,
+        )
+
+    def test_an_undocumented_registered_command_is_reported(self):
+        document = "```bash\n./bin/zeroops validate\n```\n"
+        errors = command_consistency_errors(
+            document, {"validate", "hash"}, "docs/commands.md"
+        )
+        self.assertEqual(
+            ["docs/commands.md: registered command 'hash' is not documented"], errors
+        )
+
+    def test_a_document_without_supported_invocations_fails_closed(self):
+        errors = command_consistency_errors(
+            "```powershell\n.\\bin\\zeroops.ps1 <command>\n```\n",
+            {"validate"},
+            "docs/commands.md",
+        )
+        self.assertEqual(
+            ["docs/commands.md: no supported zeroops command invocations found"],
+            errors,
+        )
+
+    def test_ci_runs_the_consistency_check_as_a_separate_job(self):
+        workflow = read(os.path.join(REPO_ROOT, ".github", "workflows", "verify.yml"))
+        self.assertIn("command-consistency:", workflow)
+        self.assertIn("Documented commands match CLI (NFR-13)", workflow)
+        self.assertIn(
+            "tests.unit.test_command_surface.DocumentedCommandsMatchTheParser",
+            workflow,
+        )
 
 
 class TheCommandSurfaceIsWhatIsDocumented(unittest.TestCase):

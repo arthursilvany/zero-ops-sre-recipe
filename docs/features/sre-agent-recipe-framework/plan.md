@@ -206,7 +206,7 @@ gates the deployment path.
 | S4-11 | Post-deployment validation | FR-39, FR-43 | Fails when the principal holds any non-read role anywhere in the subscription. Distinguishes not-yet-effective from not-granted |
 | S4-12 | Runtime capability reconciliation gate | FR-51, FR-54 | NEG-C: an advertised capability the policy does not classify fails the build. Until it runs against a real runtime, the policy stays documented as declared, not verified |
 | S4-13 | Injection-corpus measurement, non-gating | NFR-05, CC-023 | Reported as a measured rate with evidence, never claimed as proof (FR-42 discipline) |
-| S4-14 | CI quality gates | NFR-06, NFR-08 to NFR-14 | Markdown lint, link check, example validation, Bicep build and lint, static Infrastructure as Code analysis, unit tests, negative gate, command-consistency check, dependency drift |
+| S4-14 | CI quality gates | NFR-06, NFR-08 to NFR-14 | Markdown lint, link check, example validation, Bicep build and lint, static Infrastructure as Code analysis, unit tests, negative gate, command-consistency check, dependency drift. The `command-consistency` job compares concrete invocations in `docs/commands.md` with registered CLI subcommands; planned commands remain excluded until shipped. |
 | S4-15 | CI supply-chain hardening | SEC-015, NFR-14 | Digest-pinned actions, least-privilege permissions, federated credentials |
 | S4-16 | Security model, configuration reference, deployment and validation guides | NFR-05, FR-54, FR-59, NFR-16 | The security model states RBAC as the authority and names the test covering each of the five threats |
 

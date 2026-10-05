@@ -37,7 +37,9 @@ Set `ZEROOPS_PYTHON` if the interpreter is not on `PATH` as `python` (Windows) o
 `python3` (everywhere else). The shims hold no logic of their own: any behaviour placed
 in them would exist on one platform only, and the two would drift the first time either
 was edited. Every example below is written with the PowerShell shim; substitute
-`./bin/zeroops` on Linux and macOS.
+`./bin/zeroops` on Linux and macOS. CI compares concrete invocations on this page with
+the subcommands registered by the CLI. Planned commands in `plan.md` are excluded until
+they are shipped and documented here.
 
 ## Validate a configuration
 
