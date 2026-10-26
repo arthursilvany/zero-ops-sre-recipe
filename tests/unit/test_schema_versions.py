@@ -383,7 +383,7 @@ class TheVersionGateRefusesBeforeStructure(unittest.TestCase):
         document["schemaVersion"] = "9.9.9"
         self.write(document)
         findings, _ = validate.validate_artifact(self.artifact)
-        self.assertIn("1.0.0", findings[0].message)
+        self.assertIn("2.0.0", findings[0].message)
 
     def test_the_message_never_echoes_the_declared_version(self):
         """FR-27 holds for this finding as for every other: the expected value

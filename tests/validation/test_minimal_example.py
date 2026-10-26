@@ -63,7 +63,7 @@ class SchemaIsWellFormed(unittest.TestCase):
         self.assertEqual([], offenders)
 
     def test_no_property_name_is_shaped_like_a_secret(self):
-        """SEC-013: an inline secret must be inexpressible, not merely rejected."""
+        """SEC-013: no secret-bearing property or free-form payload is declared."""
         with open(SCHEMA_PATH, "r", encoding="utf-8") as handle:
             raw = json.load(handle)
 
@@ -199,6 +199,45 @@ class RejectionCases(unittest.TestCase):
 
         findings = self.check(mutate)
         self.assertIn("/environments/0/subscriptionRef", [p for p, _ in findings])
+
+    def test_provider_specific_locator_names_and_placeholders_are_accepted(self):
+        cases = (
+            ("keyVault", "orders-secret-1"),
+            ("keyVault", "<KEY_VAULT_SECRET_NAME>"),
+            ("managedIdentity", "identity_name-1"),
+            ("managedIdentity", "<MANAGED_IDENTITY_NAME>"),
+            ("environmentVariable", "ZEROOPS_SECRET_NAME"),
+            ("environmentVariable", "_ZEROOPS_SECRET2"),
+        )
+        for provider, locator in cases:
+            with self.subTest(provider=provider, locator=locator):
+                findings = self.check(
+                    lambda instance: instance["externalReferences"]["entries"][0].update(
+                        provider=provider, locator=locator
+                    )
+                )
+                self.assertEqual([], findings)
+
+    def test_provider_mismatches_and_credential_payloads_are_rejected_without_echo(self):
+        cases = (
+            ("environmentVariable", "<KEY_VAULT_SECRET_NAME>"),
+            ("keyVault", "ZEROOPS_SECRET_NAME"),
+            ("keyVault", "<MANAGED_IDENTITY_NAME>"),
+            ("keyVault", "https://user:placeholder@example.test/path?parameter=value"),
+            ("managedIdentity", "Bearer placeholder.token.value"),
+            ("environmentVariable", "Server=db.example;credential=placeholder"),
+            ("environmentVariable", "setting=sample_value"),
+        )
+        for provider, locator in cases:
+            with self.subTest(provider=provider):
+                findings = self.check(
+                    lambda instance: instance["externalReferences"]["entries"][0].update(
+                        provider=provider, locator=locator
+                    )
+                )
+                self.assertTrue(findings)
+                rendered = " ".join(message for _, message in findings)
+                self.assertNotIn(locator, rendered)
 
     def test_default_environment_must_exist(self):
         def mutate(instance):

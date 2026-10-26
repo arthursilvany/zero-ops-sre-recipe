@@ -78,7 +78,7 @@ contract has no way to represent:
 
 | Denied | Mechanism |
 |---|---|
-| An inline secret | No property can hold credential material; every such value is an external reference name whose pattern cannot express a URL or a token |
+| A locator outside its provider's name syntax | Provider-specific patterns reject URLs, userinfo, query strings, endpoint forms, and credential payloads that do not match the declared provider's naming rules |
 | A write-capable agent | No write access level and no mutating action mode exist in the enumerations |
 | Lowering the self-approval bar | `selfApprovalPermitted` is absent from the binding override, so it can be raised and not lowered (SEC-016) |
 | A change set that was applied | No executed lifecycle state exists (FR-06) |
@@ -91,6 +91,8 @@ contract has no way to represent:
 | A policy that fails open | Default decision, conflict resolution and evaluation-failure behaviour are all pinned to deny |
 | A value renamed without provenance | Every enumerated value set is registered in the vocabulary with an origin, and the drift check compares the register against the schema text in both directions |
 | A reference token used as an identifier | Concept names and canonical values admit no underscore and no upper-case first character, so a reference token can only appear as recorded provenance data |
+
+The provider-specific patterns cannot distinguish a valid locator name from an identifier-shaped secret with the same syntax. Some provider name alphabets overlap, and this framework has no resolver to confirm that a name exists or belongs to the declared provider. The patterns narrow accepted values to names; they do not prove that a name resolves to a non-secret value.
 
 ## What structure cannot check
 
