@@ -239,6 +239,24 @@ class RejectionCases(unittest.TestCase):
                 rendered = " ".join(message for _, message in findings)
                 self.assertNotIn(locator, rendered)
 
+    def test_provider_specific_locator_names_reject_trailing_line_terminators(self):
+        cases = (
+            ("keyVault", "orders-secret\n"),
+            ("keyVault", "orders-secret\r"),
+            ("managedIdentity", "identity_name-1\n"),
+            ("managedIdentity", "identity_name-1\r"),
+            ("environmentVariable", "ZEROOPS_SECRET_NAME\n"),
+            ("environmentVariable", "ZEROOPS_SECRET_NAME\r"),
+        )
+        for provider, locator in cases:
+            with self.subTest(provider=provider, terminator=repr(locator[-1])):
+                findings = self.check(
+                    lambda instance: instance["externalReferences"]["entries"][0].update(
+                        provider=provider, locator=locator
+                    )
+                )
+                self.assertTrue(findings)
+
     def test_default_environment_must_exist(self):
         def mutate(instance):
             instance["frameworkDefaults"]["defaultEnvironment"] = "no-such-environment"
