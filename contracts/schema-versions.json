@@ -184,8 +184,8 @@
     },
     {
       "schema": "framework-config",
-      "version": "1.0.0",
-      "contentDigest": "e6a49b03cd57de794d8bd22e3a5fdbecae41cfe6f23dc3a41464ecc3da809d9c",
+      "version": "2.0.0",
+      "contentDigest": "39c236871aa3678b7b7ddffdcc8e3bbfa9bc2bf9ee1e16308028d051924b962e",
       "history": [
         {
           "version": "1.0.0",
@@ -193,6 +193,22 @@
           "breakingChanges": [],
           "migration": "None required. This is the initial published version, so no consumer document predates it and nothing needs rewriting.",
           "rationale": "Initial publication. Recorded as a version record rather than omitted, so the history is never empty and a reader never has to infer that the first entry was the beginning."
+        },
+        {
+          "version": "2.0.0",
+          "date": "2026-10-03",
+          "breakingChanges": [
+            {
+              "change": "External reference locators must now match the name syntax of their declared provider. URLs, URIs, endpoint strings, credential payloads outside the permitted name syntax, and provider-specific placeholder mismatches are rejected.",
+              "affects": "/externalReferences/entries/*/locator"
+            },
+            {
+              "change": "A framework configuration must now declare schemaVersion 2.0.0. The pinned validator refuses documents still declaring 1.0.0 before structural validation.",
+              "affects": "/schemaVersion"
+            }
+          ],
+          "migration": "Change schemaVersion from 1.0.0 to 2.0.0. For each external reference, keep Key Vault locators as secret names of 1 to 127 ASCII letters, digits, or hyphens; managed identity locators as user-assigned identity resource names of 3 to 128 ASCII letters, digits, hyphens, or underscores beginning with a letter or digit; and environment-variable locators as ASCII identifiers beginning with a letter or underscore. Replace any URL, URI, endpoint, credential payload that does not match the provider syntax, or mismatched placeholder with the corresponding provider name. The shipped placeholders <KEY_VAULT_SECRET_NAME> and <MANAGED_IDENTITY_NAME> remain valid for their matching providers. The validator checks syntax only and does not resolve names or determine whether a matching value is secret material.",
+          "rationale": "An unconstrained locator accepted literal credential material despite being described as indirection. Provider-specific naming rules narrow the accepted syntax and reject locator forms such as URLs, userinfo, query strings, and credential payloads that do not match a provider's name syntax. A valid name-shaped secret remains indistinguishable from a name, and no resolver verifies that a name exists. This is a breaking public contract change, so it is published as major version 2.0.0 while the original version record remains intact."
         }
       ]
     },

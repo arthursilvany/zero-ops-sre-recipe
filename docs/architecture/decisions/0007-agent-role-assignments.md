@@ -1,7 +1,7 @@
 # Agent Role Assignments
 
-**Status**: Proposed
-**Date**: 2026-10-02
+**Status**: Accepted
+**Date**: 2026-10-26
 **Depends on**: [0001 Upstream Template Relationship](0001-upstream-template-relationship.md),
 [0002 Infrastructure as Code](0002-infrastructure-as-code.md)
 **Implements**: FR-33, SEC-001, SEC-003, CC-009
@@ -162,29 +162,28 @@ Edit the pinned modules to remove the grants.
 
 ## Decision
 
-**Option 3**, chosen by the project owner on 2026-10-02, with Option 4 pursued in
-parallel so that a future pin bump can retire the local role assignments. On 2026-10-03,
-the owner confirmed reviewed and approved. The status remains Proposed until at least one
-other team member reviews this record, as required by repository ADR guidance. The owner's
-confirmation does not substitute for that independent review.
+**Option 3**, chosen by the project owner on 2026-10-02 and accepted after review by
+another team on 2026-10-26. Option 4 will continue in parallel so that a future pin bump
+can retire the local role assignments.
 
 Option 3 is the only option that meets the first and third priorities, which are the
 product claim and its evidence. It keeps the second priority except for a narrow
 exception, scoped to roles already on the read-only allow-list. Options 1 and 2 leave the
 agent identity able to modify itself. Option 4 alone leaves US-5 blocked indefinitely.
 
-Before this ADR can move to Accepted, three facts must be measured in the lab rather than
-assumed:
+Acceptance evidence supports Option 3:
 
-1. The agent operates for read-only investigation with no SRE Agent Administrator on
-   its own user-assigned identity.
-2. With `skipRoleAssignments = true`, the composition's three read grants are sufficient
-   for the knowledge graph and the log connectors.
-3. A human principal granted SRE Agent Administrator after deployment can administer the
-   agent through the portal.
+1. The agent completed read-only investigation without SRE Agent Administrator on its
+   user-assigned identity.
+2. The lab confirmed resource reads, knowledge graph search and CLI Log Analytics
+   queries. The project owner separately confirmed that the `grubify` Log Analytics
+   connector is connected in the portal. Its identity and authorization path remain
+   unverified.
+3. A human principal granted SRE Agent Administrator could administer the agent through
+   data plane API calls. The portal UI itself was not exercised.
 
-If the first fact fails, this ADR returns to the option list with that evidence, because
-it changes what the first priority can achieve.
+The unverified connector identity and portal UI behavior are follow-up validation, not
+changes to the selected role-assignment model.
 
 ## Lab Evidence
 
@@ -199,7 +198,7 @@ Option 3. Every lab resource was deleted afterwards.
 | Negative control | With no roles on the user-assigned identity, the agent's read-only CLI call failed with subscription not found and the agent asked for on-behalf-of approval. The CLI therefore runs as the user-assigned identity. | Thread messages, `azCliExecution` status |
 | First fact | Confirmed. With Reader and Log Analytics Reader on the target resource group and Monitoring Reader on the agent resource group, the agent completed resource reads and a Log Analytics query with no administrator role and no on-behalf-of approval. | Thread final message `step1=ok step2=ok` |
 | Second fact | Confirmed for resource reads, knowledge graph search and CLI log queries. Log Analytics data access lagged the role grant: the query failed at about seven minutes and succeeded at about thirty two minutes. | Two threads, timed against the grant |
-| Second fact, connector | Not confirmed. The upstream Log Analytics connector was provisioned with the system identity and was not listed by the agent's connector tools. The cause is unmeasured and no RBAC denial was observed. | `ListConnectors` returned an empty list |
+| Second fact, connector | The project owner confirmed that the `grubify` Log Analytics connector is connected in the agent portal. The screenshot does not identify which identity the connector uses or independently verify the role assignment path. | Portal screenshot supplied by the project owner on 2026-10-26 |
 | Third fact | Confirmed through the data plane API. A subscription Owner received 403 on agent data plane calls. About thirty five seconds after SRE Agent Administrator was granted on the agent resource, the same calls returned 200 and trigger creation returned 201. The portal UI was not exercised. | HTTP status codes before and after the grant |
 
 Observations recorded for the runbook, unrelated to the decision itself:
@@ -212,7 +211,7 @@ Observations recorded for the runbook, unrelated to the decision itself:
 
 ## Implementation Notes
 
-If Option 3 is accepted, it implies the following changes:
+Option 3 implies the following changes:
 
 - **NEG-A:** evaluate `condition` under literal bindings only. An unknown function, an
   unbound parameter or a non-literal binding keeps the grant as a finding. Mutation
@@ -228,9 +227,9 @@ If Option 3 is accepted, it implies the following changes:
 - **T5.06:** allow for Log Analytics data access propagation, measured above at more than
   seven minutes, before declaring a failed probe. Verification reads the stored trigger
   and the thread result instead of trusting the 202.
-- **Follow up:** decide whether the composition creates the Log Analytics connector with
-  the user-assigned identity, after measuring why the system identity connector is not
-  visible to the agent tools.
+- **Follow up:** verify which identity the connected Log Analytics connector uses and
+  whether the composition's read grants authorize its queries. The portal screenshot
+  confirms connection status, not the identity or authorization path.
 
 ## References
 

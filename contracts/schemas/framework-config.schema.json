@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://zero-ops-sre-recipe.contracts/schemas/framework-config.schema.json",
   "title": "Framework configuration",
-  "description": "The versioned configuration contract required by FR-24. It separates eight concerns so that environment settings can vary while the workload definition does not (FR-36). No section may hold an inline secret: sensitive values are referenced through externalReferences and never carried here (SEC-013).",
+  "description": "The versioned configuration contract required by FR-24. It separates eight concerns so that environment settings can vary while the workload definition does not (FR-36). No free-form secret-bearing field is defined; externalReferences locators accept only provider-specific name syntax. Identifier-shaped secrets cannot be distinguished from names (SEC-013).",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -176,7 +176,7 @@
         "entries": {
           "type": "array",
           "uniqueItems": true,
-          "description": "Indirection only. Each entry names where a value lives; none carries the value. A property shaped like a secret is absent from this schema rather than validated, so an inline secret cannot be expressed at all (SEC-013).",
+          "description": "Each entry names a provider-specific locator. The provider controls permitted name syntax; URLs and credential payloads outside that syntax are rejected. This shape check does not prove that a matching secret is not used as a name (SEC-013).",
           "items": {
             "type": "object",
             "additionalProperties": false,
@@ -191,9 +191,54 @@
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 300,
-                "description": "Where the value lives, never the value. A locator must not be a literal credential; the emitted artifact is committed by consumers."
+                "description": "A provider-specific name or supported placeholder only. Syntax cannot establish that a name is non-secret."
               }
-            }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": { "provider": { "const": "keyVault" } },
+                  "required": ["provider"]
+                },
+                "then": {
+                  "properties": {
+                    "locator": {
+                      "anyOf": [
+                        { "$ref": "#/$defs/keyVaultLocatorName" },
+                        { "const": "<KEY_VAULT_SECRET_NAME>" }
+                      ]
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": { "provider": { "const": "managedIdentity" } },
+                  "required": ["provider"]
+                },
+                "then": {
+                  "properties": {
+                    "locator": {
+                      "anyOf": [
+                        { "$ref": "#/$defs/managedIdentityName" },
+                        { "const": "<MANAGED_IDENTITY_NAME>" }
+                      ]
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": { "provider": { "const": "environmentVariable" } },
+                  "required": ["provider"]
+                },
+                "then": {
+                  "properties": {
+                    "locator": { "$ref": "#/$defs/environmentVariableName" }
+                  }
+                }
+              }
+            ]
           }
         }
       }
@@ -203,7 +248,7 @@
   "$defs": {
     "schemaVersion": {
       "type": "string",
-      "const": "1.0.0",
+      "const": "2.0.0",
       "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
       "description": "The version of this schema the instance conforms to (FR-05, FR-29). A consumer pinned to version N keeps validating unchanged when N+1 ships (CC-C01). Pinned with const rather than left to the pattern: without it an instance could declare any version at all and still validate, which made the declaration decorative (NFR-21)."
     },
@@ -216,6 +261,21 @@
       "type": "string",
       "pattern": "^[a-z][a-z0-9-]{1,62}[a-z0-9]$",
       "description": "Names an entry in externalReferences. Resolution that the named entry exists is a semantic check, not a structural one."
+    },
+    "keyVaultLocatorName": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9-]{1,127}(?![\\s\\S])",
+      "description": "Azure Key Vault secret name: 1 to 127 letters, digits, or hyphens."
+    },
+    "managedIdentityName": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{2,127}(?![\\s\\S])",
+      "description": "Azure user-assigned managed identity resource name: 3 to 128 alphanumeric characters, hyphens, or underscores, starting with a letter or digit."
+    },
+    "environmentVariableName": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*(?![\\s\\S])",
+      "description": "Environment variable identifier: an ASCII letter or underscore followed by ASCII letters, digits, or underscores."
     },
     "observationPeriod": {
       "type": "object",
